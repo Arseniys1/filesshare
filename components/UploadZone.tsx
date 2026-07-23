@@ -40,7 +40,7 @@ export default function UploadZone({
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const uploadSingle = async (file: File): Promise<UploadedFile> => {
+  const uploadSingle = useCallback(async (file: File): Promise<UploadedFile> => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("expiry", expiry);
@@ -57,7 +57,7 @@ export default function UploadZone({
       throw new Error(data.error || "Ошибка загрузки");
     }
     return data.file;
-  };
+  }, [expiry, password, maxDownloads]);
 
   const uploadFiles = useCallback(
     async (files: File[]) => {
@@ -130,7 +130,7 @@ export default function UploadZone({
 
       setUploading(false);
     },
-    [expiry, password, maxDownloads, maxFileSize, maxFileSizeLabel]
+    [maxFileSize, maxFileSizeLabel, uploadSingle]
   );
 
   const handleFiles = useCallback(

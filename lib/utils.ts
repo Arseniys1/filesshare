@@ -1,16 +1,61 @@
 import { nanoid } from "nanoid";
 import crypto from "crypto";
 
+export interface PasswordVerification {
+  valid: boolean;
+  needsRehash: boolean;
+}
+
+function derivePassword(password: string, salt: Buffer, length: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, length, (error, derived) => {
+      if (error) reject(error);
+      else resolve(derived);
+    });
+  });
+}
+
 export function generateFileToken(): string {
   return nanoid(12);
 }
 
-export function hashPassword(password: string): string {
-  return crypto.createHash("sha256").update(password).digest("hex");
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.randomBytes(16);
+  const derived = await derivePassword(password, salt, 64);
+  return `scrypt$${salt.toString("base64url")}$${derived.toString("base64url")}`;
 }
 
-export function verifyPassword(password: string, hash: string): boolean {
-  return hashPassword(password) === hash;
+function safelyCompare(left: Buffer, right: Buffer): boolean {
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+export async function verifyPassword(
+  password: string,
+  storedHash: string
+): Promise<PasswordVerification> {
+  const [algorithm, saltEncoded, hashEncoded] = storedHash.split("$");
+
+  if (algorithm === "scrypt" && saltEncoded && hashEncoded) {
+    try {
+      const expected = Buffer.from(hashEncoded, "base64url");
+      const actual = await derivePassword(
+        password,
+        Buffer.from(saltEncoded, "base64url"),
+        expected.length
+      );
+      return { valid: safelyCompare(actual, expected), needsRehash: false };
+    } catch {
+      return { valid: false, needsRehash: false };
+    }
+  }
+
+  // Compatibility with links created before the scrypt migration.
+  const legacy = crypto.createHash("sha256").update(password).digest();
+  const expected = Buffer.from(storedHash, "hex");
+  return {
+    valid: safelyCompare(legacy, expected),
+    needsRehash: safelyCompare(legacy, expected),
+  };
 }
 
 export function formatFileSize(bytes: number): string {

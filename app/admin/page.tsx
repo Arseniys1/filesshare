@@ -143,13 +143,24 @@ export default function AdminPage() {
     fetchData();
   };
 
-  const deleteAccount = async (id: number) => {
-    if (!confirm("Удалить этот аккаунт? Файлы останутся в Telegram.")) return;
+  const deleteAccount = async (account: StorageAccount) => {
+    if (account.filesCount > 0) {
+      setError(
+        "Нельзя удалить аккаунт с файлами. Отключите его — существующие ссылки продолжат работать до очистки."
+      );
+      return;
+    }
+    if (!confirm("Удалить этот пустой аккаунт?")) return;
 
-    await fetch(`/api/admin/accounts?id=${id}`, {
+    const res = await fetch(`/api/admin/accounts?id=${account.id}`, {
       method: "DELETE",
       headers: getHeaders(),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Не удалось удалить аккаунт");
+      return;
+    }
     fetchData();
   };
 
@@ -349,8 +360,14 @@ export default function AdminPage() {
                   {account.isActive ? "Выключить" : "Включить"}
                 </button>
                 <button
-                  onClick={() => deleteAccount(account.id)}
-                  className="px-3 py-1.5 rounded-lg text-sm text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors"
+                  onClick={() => deleteAccount(account)}
+                  disabled={account.filesCount > 0}
+                  title={
+                    account.filesCount > 0
+                      ? "Сначала дождитесь очистки файлов или отключите аккаунт"
+                      : undefined
+                  }
+                  className="px-3 py-1.5 rounded-lg text-sm text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Удалить
                 </button>

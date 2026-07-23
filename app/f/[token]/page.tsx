@@ -55,44 +55,30 @@ export default function SharePage() {
   const handleDownload = async () => {
     setDownloading(true);
     setError(null);
+    let downloadStarted = false;
 
     try {
-      const headers: Record<string, string> = {};
-      if (password) {
-        headers["x-file-password"] = password;
+      if (file?.hasPassword) {
+        const res = await fetch(`/api/files/${token}/access`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setNeedsPassword(true);
+          setError(data.error || "Неверный пароль");
+          return;
+        }
       }
 
-      const res = await fetch(`/api/download/${token}`, { headers });
-
-      if (res.status === 401) {
-        setNeedsPassword(true);
-        setError("Неверный пароль");
-        return;
-      }
-
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error);
-        return;
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file?.name || "download";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      if (file) {
-        setFile({ ...file, downloadCount: file.downloadCount + 1 });
-      }
+      window.location.assign(`/api/download/${encodeURIComponent(token)}`);
+      downloadStarted = true;
+      window.setTimeout(() => setDownloading(false), 1000);
     } catch {
       setError("Ошибка при скачивании");
     } finally {
-      setDownloading(false);
+      if (!downloadStarted) setDownloading(false);
     }
   };
 

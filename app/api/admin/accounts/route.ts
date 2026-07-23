@@ -1,9 +1,11 @@
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAllStorageAccounts,
   createStorageAccount,
   updateStorageAccount,
   deleteStorageAccount,
+  getStorageAccountFileCount,
 } from "@/lib/db";
 import { testBotConnection } from "@/lib/telegram";
 import { getStats } from "@/lib/db";
@@ -12,10 +14,12 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 function checkAdminAuth(request: NextRequest): boolean {
-  const adminKey = process.env.ADMIN_KEY;
-  if (!adminKey) return true;
+  const adminKey = process.env.ADMIN_KEY?.trim();
+  if (!adminKey) return process.env.NODE_ENV !== "production";
   const authHeader = request.headers.get("authorization");
-  return authHeader === `Bearer ${adminKey}`;
+  const expected = Buffer.from(`Bearer ${adminKey}`);
+  const actual = Buffer.from(authHeader || "");
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 
 export async function GET(request: NextRequest) {
@@ -142,7 +146,22 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "ID обязателен" }, { status: 400 });
     }
 
-    deleteStorageAccount(parseInt(id, 10));
+    const accountId = Number(id);
+    if (!Number.isSafeInteger(accountId) || accountId < 1) {
+      return NextResponse.json({ error: "Некорректный ID" }, { status: 400 });
+    }
+    if (getStorageAccountFileCount(accountId) > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Нельзя удалить аккаунт, пока в нём есть файлы. Отключите его: существующие ссылки продолжат работать, а аккаунт можно будет удалить после очистки.",
+        },
+        { status: 409 }
+      );
+    }
+    if (!deleteStorageAccount(accountId)) {
+      return NextResponse.json({ error: "Аккаунт не найден" }, { status: 404 });
+    }
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Delete account error:", err);

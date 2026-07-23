@@ -1,5 +1,8 @@
 import FormData from "form-data";
-import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { access } from "node:fs/promises";
+import path from "node:path";
+import { Readable } from "node:stream";
 import {
   buildBotApiUrl,
   buildFileApiUrl,
@@ -133,17 +136,17 @@ export async function sendDocumentToChannel(
       );
     }
 
-    const buffer =
+    const document =
       options.buffer ??
-      (options.filePath ? await readFile(options.filePath) : undefined);
+      (options.filePath ? createReadStream(options.filePath) : undefined);
 
-    if (!buffer) {
+    if (!document) {
       throw new TelegramAPIError("Нет данных файла для отправки", 400);
     }
 
     const form = new FormData();
     form.append("chat_id", channelId);
-    form.append("document", buffer, {
+    form.append("document", document, {
       filename: options.fileName,
       contentType: "application/octet-stream",
     });
@@ -169,10 +172,22 @@ export async function getTelegramFile(
   return callTelegramJson<TelegramFile>(botToken, "getFile", { file_id: fileId });
 }
 
-export async function downloadTelegramFile(
+export interface TelegramFileStream {
+  body: ReadableStream<Uint8Array>;
+  contentLength?: string;
+}
+
+export async function streamTelegramFile(
   botToken: string,
   filePath: string
-): Promise<ArrayBuffer> {
+): Promise<TelegramFileStream> {
+  if (isLocalTelegramApi() && path.isAbsolute(filePath)) {
+    await access(filePath);
+    return {
+      body: Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>,
+    };
+  }
+
   const url = buildFileApiUrl(botToken, filePath);
   const response = await telegramFetch(url, {}, 600000);
 
@@ -180,7 +195,25 @@ export async function downloadTelegramFile(
     throw new Error(`Failed to download file: ${response.statusText}`);
   }
 
-  return response.arrayBuffer();
+  if (!response.body) {
+    throw new Error("Telegram вернул пустой поток файла");
+  }
+
+  return {
+    body: response.body,
+    contentLength: response.headers.get("content-length") || undefined,
+  };
+}
+
+export async function deleteTelegramMessage(
+  botToken: string,
+  channelId: string,
+  messageId: number
+): Promise<boolean> {
+  return callTelegramJson<boolean>(botToken, "deleteMessage", {
+    chat_id: channelId,
+    message_id: messageId,
+  });
 }
 
 export async function testBotConnection(

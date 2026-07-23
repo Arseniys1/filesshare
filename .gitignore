@@ -18,6 +18,7 @@ data/
 .env
 .env.local
 .env.production.local
+certs/
 
 # Debug
 npm-debug.log*

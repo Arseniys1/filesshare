@@ -1,0 +1,38 @@
+import { describe, expect, it } from "vitest";
+import {
+  createDownloadGrant,
+  verifyDownloadGrant,
+} from "@/lib/download-grant";
+import { hashPassword, verifyPassword } from "@/lib/utils";
+
+describe("password migration", () => {
+  it("stores new passwords with salted scrypt", async () => {
+    const hash = await hashPassword("correct horse battery staple");
+    expect(hash).toMatch(/^scrypt\$/);
+    await expect(verifyPassword("correct horse battery staple", hash)).resolves.toEqual({
+      valid: true,
+      needsRehash: false,
+    });
+    await expect(verifyPassword("wrong", hash)).resolves.toEqual({
+      valid: false,
+      needsRehash: false,
+    });
+  });
+
+  it("accepts a legacy SHA-256 hash once and marks it for upgrade", async () => {
+    const legacy = "2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b";
+    await expect(verifyPassword("secret", legacy)).resolves.toEqual({
+      valid: true,
+      needsRehash: true,
+    });
+  });
+});
+
+describe("download grants", () => {
+  it("verifies a grant only for the matching token", () => {
+    const token = "Abcdef123456";
+    const grant = createDownloadGrant(token);
+    expect(verifyDownloadGrant(token, grant.value)).toBe(true);
+    expect(verifyDownloadGrant("Zbcdef123456", grant.value)).toBe(false);
+  });
+});

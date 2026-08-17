@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFileByToken, updateFilePasswordHash } from "@/lib/db";
+import {
+  getFileByToken,
+  getFileGroupByToken,
+  updateFileGroupPasswordHash,
+  updateFilePasswordHash,
+} from "@/lib/db";
 import {
   createDownloadGrant,
   getDownloadGrantCookieName,
@@ -18,14 +23,17 @@ export async function POST(
     if (!isSafeFileToken(token)) {
       return NextResponse.json({ error: "Файл не найден" }, { status: 404 });
     }
-    const file = getFileByToken(token);
-    if (!file) {
+    const group = getFileGroupByToken(token);
+    const file = group ? undefined : getFileByToken(token);
+    if (!group && !file) {
       return NextResponse.json({ error: "Файл не найден" }, { status: 404 });
     }
-    if (isExpired(file.expires_at)) {
+    const expiresAt = group?.expires_at ?? file?.expires_at ?? null;
+    if (isExpired(expiresAt)) {
       return NextResponse.json({ error: "Срок действия ссылки истёк" }, { status: 410 });
     }
-    if (!file.password_hash) {
+    const passwordHash = group?.password_hash ?? file?.password_hash ?? null;
+    if (!passwordHash) {
       return NextResponse.json({ error: "Для файла не требуется пароль" }, { status: 400 });
     }
 
@@ -34,12 +42,13 @@ export async function POST(
       return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
     }
 
-    const verification = await verifyPassword(body.password, file.password_hash);
+    const verification = await verifyPassword(body.password, passwordHash);
     if (!verification.valid) {
       return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
     }
     if (verification.needsRehash) {
-      updateFilePasswordHash(token, await hashPassword(body.password));
+      if (group) updateFileGroupPasswordHash(token, await hashPassword(body.password));
+      else updateFilePasswordHash(token, await hashPassword(body.password));
     }
 
     const grant = createDownloadGrant(token);
@@ -53,7 +62,7 @@ export async function POST(
       httpOnly: true,
       sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
-      path: `/api/download/${token}`,
+      path: group ? "/api/download" : `/api/download/${token}`,
       expires: grant.expiresAt,
     });
     return response;

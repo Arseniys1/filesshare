@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { createFileRecord, getActiveStorageAccounts } from "@/lib/db";
+import { createFileRecord, getActiveStorageAccounts, getFileGroupByToken } from "@/lib/db";
 import { encryptFileToPath, type ContentEncryption } from "@/lib/file-encryption";
 import { sendDocumentToChannel } from "@/lib/telegram";
 import {
@@ -47,6 +47,7 @@ interface ParsedUpload {
   password: string | null;
   maxDownloads: number | null;
   contentEncryption: ContentEncryption;
+  groupToken: string | null;
 }
 
 function sanitizeFileName(name: string): string {
@@ -108,7 +109,7 @@ async function parseMultipartUpload(
     };
 
     parser.on("field", (name, value) => {
-      if (["expiry", "password", "maxDownloads", "contentEncryption", "originalSize"].includes(name)) {
+      if (["expiry", "password", "maxDownloads", "contentEncryption", "originalSize", "groupToken"].includes(name)) {
         fields[name] = value.slice(0, 2048);
       }
     });
@@ -201,6 +202,7 @@ async function parseMultipartUpload(
     password: fields.password || null,
     maxDownloads: parseMaxDownloads(fields.maxDownloads),
     contentEncryption: (fields.contentEncryption || "none") as ContentEncryption,
+    groupToken: fields.groupToken || null,
   };
 }
 
@@ -232,9 +234,13 @@ export async function POST(request: NextRequest) {
     tempDir = await mkdtemp(join(uploadRoot, "filesshare-"));
 
     const upload = await parseMultipartUpload(request, tempDir, getMaxFileSizeBytes());
+    const group = upload.groupToken ? getFileGroupByToken(upload.groupToken) : null;
+    if (upload.groupToken && !group) {
+      throw new UploadValidationError("Группа файлов не найдена");
+    }
     const account = accounts[0];
     const token = generateFileToken();
-    const expiresAt = computeExpiresAt(upload.expiry);
+    const expiresAt = group ? group.expires_at : computeExpiresAt(upload.expiry);
     const encryptedPath = join(tempDir, "storage-payload.bin");
     const encryptedFile = await encryptFileToPath(upload.filePath, encryptedPath);
     if (encryptedFile.originalSize !== upload.contentSize) {
@@ -269,11 +275,16 @@ export async function POST(request: NextRequest) {
       telegramFileId: message.document.file_id,
       telegramMessageId: message.message_id,
       expiresAt,
-      maxDownloads: upload.maxDownloads,
-      passwordHash: upload.password ? await hashPassword(upload.password) : null,
+      maxDownloads: group ? group.max_downloads : upload.maxDownloads,
+      passwordHash: group
+        ? group.password_hash
+        : upload.password
+          ? await hashPassword(upload.password)
+          : null,
       storageEncryption: encryptedFile.storageEncryption,
       storageKeyWrap: encryptedFile.storageKeyWrap,
       contentEncryption: upload.contentEncryption,
+      groupId: group?.id ?? null,
     });
 
     finishUploadLease(lease, upload.contentSize);

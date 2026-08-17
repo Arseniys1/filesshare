@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
+  addE2EEKeysToShareUrl,
   addE2EEKeyToShareUrl,
   createBufferedE2EEMultipartUpload,
   createE2EEMultipartUpload,
@@ -12,11 +13,23 @@ interface UploadedFile {
   token: string;
   name: string;
   size: number;
+  mimeType: string;
   shareUrl: string;
   expiresAt: string | null;
   hasPassword: boolean;
   storageEncrypted: boolean;
   contentEncryption: "none" | "e2ee-v1";
+  e2eeKey?: string;
+  fileCount?: number;
+  isGroup?: boolean;
+}
+
+interface FileGroupUpload {
+  token: string;
+  shareUrl: string;
+  expiresAt: string | null;
+  maxDownloads: number | null;
+  hasPassword: boolean;
 }
 
 interface QueueItem {
@@ -59,10 +72,26 @@ export default function UploadZone({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, []);
 
-  const uploadSingle = useCallback(async (file: File): Promise<UploadedFile> => {
+  const createGroup = useCallback(async (): Promise<FileGroupUpload> => {
+    const response = await fetch("/api/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        expiry,
+        ...(password ? { password } : {}),
+        ...(maxDownloads ? { maxDownloads } : {}),
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Не удалось создать группу файлов");
+    return data.group;
+  }, [expiry, maxDownloads, password]);
+
+  const uploadSingle = useCallback(async (file: File, groupToken?: string): Promise<UploadedFile> => {
     if (endToEndEncryption) {
       const e2eeFields = {
         expiry,
+        ...(groupToken ? { groupToken } : {}),
         ...(password ? { password } : {}),
         ...(maxDownloads ? { maxDownloads } : {}),
         contentEncryption: "e2ee-v1",
@@ -101,12 +130,14 @@ export default function UploadZone({
       return {
         ...data.file,
         shareUrl: addE2EEKeyToShareUrl(data.file.shareUrl, encryptedUpload.key),
+        e2eeKey: encryptedUpload.key,
       };
     }
 
     const formData = new FormData();
     formData.append("file", file);
     formData.append("expiry", expiry);
+    if (groupToken) formData.append("groupToken", groupToken);
     if (password) formData.append("password", password);
     if (maxDownloads) formData.append("maxDownloads", maxDownloads);
 
@@ -148,8 +179,19 @@ export default function UploadZone({
 
       const results: UploadedFile[] = [];
       const errors: string[] = [];
+      let group: FileGroupUpload | null = null;
 
-      for (let i = 0; i < items.length; i++) {
+      if (files.length > 1) {
+        try {
+          group = await createGroup();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Ошибка создания группы файлов";
+          errors.push(`Группа файлов: ${msg}`);
+          setQueue((prev) => prev.map((q) => ({ ...q, status: "error", error: msg })));
+        }
+      }
+
+      for (let i = 0; i < items.length && (files.length === 1 || group !== null); i++) {
         const item = items[i];
 
         setQueue((prev) =>
@@ -159,7 +201,7 @@ export default function UploadZone({
         );
 
         try {
-          const result = await uploadSingle(item.file);
+          const result = await uploadSingle(item.file, group?.token);
           results.push(result);
 
           setQueue((prev) =>
@@ -180,7 +222,32 @@ export default function UploadZone({
         }
       }
 
-      if (results.length > 0) {
+      if (group && results.length > 0) {
+        const e2eeKeys = Object.fromEntries(
+          results
+            .filter((result) => result.e2eeKey)
+            .map((result) => [result.token, result.e2eeKey!])
+        );
+        const shareUrl = Object.keys(e2eeKeys).length > 0
+          ? addE2EEKeysToShareUrl(group.shareUrl, e2eeKeys)
+          : group.shareUrl;
+        const groupResult: UploadedFile = {
+          token: group.token,
+          name: `Пакет из ${results.length} файлов`,
+          size: results.reduce((total, result) => total + result.size, 0),
+          mimeType: "application/octet-stream",
+          shareUrl,
+          expiresAt: group.expiresAt,
+          hasPassword: group.hasPassword,
+          storageEncrypted: results.every((result) => result.storageEncrypted),
+          contentEncryption: results.every((result) => result.contentEncryption === "e2ee-v1")
+            ? "e2ee-v1"
+            : "none",
+          fileCount: results.length,
+          isGroup: true,
+        };
+        setUploadedFiles((prev) => [groupResult, ...prev]);
+      } else if (results.length > 0) {
         setUploadedFiles((prev) => [...results, ...prev]);
       }
       if (errors.length > 0) {
@@ -193,7 +260,7 @@ export default function UploadZone({
 
       setUploading(false);
     },
-    [maxFileSize, maxFileSizeLabel, uploadSingle]
+    [createGroup, maxFileSize, maxFileSizeLabel, uploadSingle]
   );
 
   const handleFiles = useCallback(
@@ -284,7 +351,9 @@ export default function UploadZone({
         {uploading ? (
           <div className="space-y-3">
             <p className="text-lg font-medium">
-              Загрузка {doneCount + 1} из {totalCount}...
+              {totalCount > 1
+                ? "Загрузка группы файлов..."
+                : `Загрузка ${doneCount + 1} из ${totalCount}...`}
             </p>
             <div className="w-64 mx-auto h-2 bg-surface-overlay rounded-full overflow-hidden">
               <div
@@ -494,7 +563,7 @@ export default function UploadZone({
         <div className="space-y-3 animate-slide-up">
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-gray-300">
-              Загруженные файлы ({uploadedFiles.length})
+              Общие ссылки ({uploadedFiles.length})
             </h3>
             {uploadedFiles.length > 1 && (
               <button
@@ -526,9 +595,13 @@ export default function UploadZone({
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{file.name}</p>
+                <p className="font-medium truncate">
+                  {file.isGroup ? `Пакет из ${file.fileCount} файлов` : file.name}
+                </p>
                 <p className="text-sm text-gray-400">
-                  {formatFileSize(file.size)}
+                  {file.isGroup
+                    ? `${file.fileCount} файлов · ${formatFileSize(file.size)}`
+                    : formatFileSize(file.size)}
                   {file.expiresAt && (
                     <span>
                       {" "}

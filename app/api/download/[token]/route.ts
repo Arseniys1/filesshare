@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFileByToken, releaseDownloadReservation, reserveDownload } from "@/lib/db";
+import {
+  getFileByToken,
+  getFileGroupById,
+  releaseDownloadReservation,
+  releaseGroupDownload,
+  reserveDownload,
+  reserveGroupDownload,
+} from "@/lib/db";
 import {
   getDownloadGrantCookieName,
   isSafeFileToken,
@@ -29,6 +36,8 @@ export async function GET(
 ) {
   let reserved = false;
   let token = "";
+  let reservationToken = "";
+  let groupReservation = false;
 
   try {
     ({ token } = await params);
@@ -39,13 +48,18 @@ export async function GET(
     if (!file) {
       return NextResponse.json({ error: "Файл не найден" }, { status: 404 });
     }
-    if (isExpired(file.expires_at)) {
+    const group = file.group_id !== null ? getFileGroupById(file.group_id) : undefined;
+    if (group && isExpired(group.expires_at)) {
+      return NextResponse.json({ error: "Срок действия ссылки истёк" }, { status: 410 });
+    }
+    if (!group && isExpired(file.expires_at)) {
       return NextResponse.json({ error: "Срок действия ссылки истёк" }, { status: 410 });
     }
 
-    if (file.password_hash) {
-      const grant = request.cookies.get(getDownloadGrantCookieName(token))?.value;
-      if (!verifyDownloadGrant(token, grant)) {
+    if (group ? group.password_hash : file.password_hash) {
+      const grantToken = group?.token ?? token;
+      const grant = request.cookies.get(getDownloadGrantCookieName(grantToken))?.value;
+      if (!verifyDownloadGrant(grantToken, grant)) {
         return NextResponse.json(
           { error: "Требуется пароль", requiresPassword: true },
           { status: 401, headers: { "Cache-Control": "no-store" } }
@@ -53,10 +67,12 @@ export async function GET(
       }
     }
 
-    if (!reserveDownload(token)) {
+    if (group ? !reserveGroupDownload(group.token) : !reserveDownload(token)) {
       return NextResponse.json({ error: "Достигнут лимит скачиваний" }, { status: 410 });
     }
     reserved = true;
+    reservationToken = group?.token ?? token;
+    groupReservation = !!group;
 
     const telegramFile = await getTelegramFile(file.bot_token, file.telegram_file_id);
     if (!telegramFile.file_path) {
@@ -83,7 +99,10 @@ export async function GET(
 
     return new NextResponse(body as unknown as BodyInit, { headers });
   } catch (error) {
-    if (reserved && token) releaseDownloadReservation(token);
+    if (reserved && reservationToken) {
+      if (groupReservation) releaseGroupDownload(reservationToken);
+      else releaseDownloadReservation(reservationToken);
+    }
     console.error("Download error:", error);
     return NextResponse.json({ error: "Ошибка при скачивании файла" }, { status: 500 });
   }

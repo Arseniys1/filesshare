@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   addE2EEKeyToShareUrl,
+  addE2EEKeysToShareUrl,
   createBufferedE2EEMultipartUpload,
   createE2EEUpload,
   decryptE2EEToSink,
   downloadE2EEFile,
   readE2EEKeyFromHash,
+  readE2EEKeysFromHash,
 } from "@/lib/e2ee-client";
 
 async function readStream(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
@@ -67,6 +69,18 @@ describe("client-side E2EE", () => {
     const shareUrl = addE2EEKeyToShareUrl("https://files.example/f/token", "abc_def");
     expect(shareUrl).toBe("https://files.example/f/token#key=abc_def");
     expect(() => readE2EEKeyFromHash("#key=abc_def")).toThrow();
+  });
+
+  it("keeps a key map for a group in the URL fragment", () => {
+    const shareUrl = addE2EEKeysToShareUrl("https://files.example/f/group-token", {
+      FileToken1: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      FileToken2: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    });
+    const keys = readE2EEKeysFromHash(new URL(shareUrl).hash);
+
+    expect(shareUrl).toContain("#keys=");
+    expect(keys.FileToken1).toHaveLength(32);
+    expect(keys.FileToken2).toHaveLength(32);
   });
 
   it("can materialize a small E2EE multipart request for HTTP fallbacks", async () => {

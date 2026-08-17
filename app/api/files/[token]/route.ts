@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFileByToken } from "@/lib/db";
+import { getFileByToken, getFileGroupByToken, getFilesByGroupId } from "@/lib/db";
 import { isExpired } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -10,6 +10,40 @@ export async function GET(
 ) {
   try {
     const { token } = await params;
+    const group = getFileGroupByToken(token);
+    if (group) {
+      const files = getFilesByGroupId(group.id);
+      if (files.length === 0) {
+        return NextResponse.json({ error: "Группа файлов пуста" }, { status: 404 });
+      }
+      const expired = isExpired(group.expires_at);
+      const downloadsExceeded =
+        group.max_downloads !== null && group.download_count >= group.max_downloads;
+
+      return NextResponse.json({
+        kind: "group",
+        token: group.token,
+        name: `Пакет из ${files.length} файлов`,
+        size: files.reduce((total, file) => total + file.size, 0),
+        expiresAt: group.expires_at,
+        downloadCount: group.download_count,
+        maxDownloads: group.max_downloads,
+        hasPassword: !!group.password_hash,
+        createdAt: group.created_at,
+        expired,
+        downloadsExceeded,
+        available: !expired && !downloadsExceeded,
+        files: files.map((file) => ({
+          token: file.token,
+          name: file.original_name,
+          size: file.size,
+          mimeType: file.mime_type,
+          storageEncrypted: file.storage_encryption === "server-v1",
+          contentEncryption: file.content_encryption,
+        })),
+      });
+    }
+
     const file = getFileByToken(token);
 
     if (!file) {
@@ -21,6 +55,7 @@ export async function GET(
       file.max_downloads !== null && file.download_count >= file.max_downloads;
 
     return NextResponse.json({
+      kind: "file",
       token: file.token,
       name: file.original_name,
       size: file.size,

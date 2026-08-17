@@ -30,6 +30,16 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS file_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TEXT,
+    download_count INTEGER NOT NULL DEFAULT 0,
+    max_downloads INTEGER,
+    password_hash TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     token TEXT NOT NULL UNIQUE,
@@ -47,8 +57,10 @@ db.exec(`
     storage_encryption TEXT NOT NULL DEFAULT 'none',
     storage_key_wrap TEXT,
     content_encryption TEXT NOT NULL DEFAULT 'none',
+    group_id INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (storage_account_id) REFERENCES storage_accounts(id)
+    FOREIGN KEY (storage_account_id) REFERENCES storage_accounts(id),
+    FOREIGN KEY (group_id) REFERENCES file_groups(id) ON DELETE CASCADE
   );
 
   CREATE INDEX IF NOT EXISTS idx_files_token ON files(token);
@@ -176,6 +188,28 @@ const migrations: Migration[] = [
       db.exec("UPDATE files SET content_size = size WHERE content_size = 0");
     },
   },
+  {
+    id: "006_file_groups",
+    apply: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS file_groups (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          token TEXT NOT NULL UNIQUE,
+          expires_at TEXT,
+          download_count INTEGER NOT NULL DEFAULT 0,
+          max_downloads INTEGER,
+          password_hash TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+      if (!hasColumn("files", "group_id")) {
+        db.exec(
+          "ALTER TABLE files ADD COLUMN group_id INTEGER REFERENCES file_groups(id) ON DELETE CASCADE"
+        );
+      }
+      db.exec("CREATE INDEX IF NOT EXISTS idx_files_group_id ON files(group_id)");
+    },
+  },
 ];
 
 db.exec("BEGIN IMMEDIATE");
@@ -202,6 +236,16 @@ export interface StorageAccount {
   channel_id: string;
   is_active: number;
   files_count: number;
+  created_at: string;
+}
+
+export interface FileGroupRecord {
+  id: number;
+  token: string;
+  expires_at: string | null;
+  download_count: number;
+  max_downloads: number | null;
+  password_hash: string | null;
   created_at: string;
 }
 
@@ -241,6 +285,7 @@ export interface FileRecord {
   storage_encryption: StorageEncryption;
   storage_key_wrap: string | null;
   content_encryption: ContentEncryption;
+  group_id: number | null;
   created_at: string;
   deletion_attempts: number;
   last_deletion_error: string | null;
@@ -425,6 +470,53 @@ export function incrementAccountFileCount(id: number): void {
   ).run(id);
 }
 
+export function createFileGroup(data: {
+  token: string;
+  expiresAt: string | null;
+  maxDownloads: number | null;
+  passwordHash: string | null;
+}): FileGroupRecord {
+  const result = db
+    .prepare(
+      `INSERT INTO file_groups (token, expires_at, max_downloads, password_hash)
+       VALUES (?, ?, ?, ?)`
+    )
+    .run(data.token, data.expiresAt, data.maxDownloads, data.passwordHash);
+  return db
+    .prepare("SELECT * FROM file_groups WHERE id = ?")
+    .get(result.lastInsertRowid) as FileGroupRecord;
+}
+
+export function getFileGroupByToken(token: string): FileGroupRecord | undefined {
+  return db
+    .prepare("SELECT * FROM file_groups WHERE token = ?")
+    .get(token) as FileGroupRecord | undefined;
+}
+
+export function getFileGroupById(id: number): FileGroupRecord | undefined {
+  return db
+    .prepare("SELECT * FROM file_groups WHERE id = ?")
+    .get(id) as FileGroupRecord | undefined;
+}
+
+export function getFilesByGroupId(groupId: number): FileWithAccount[] {
+  return db
+    .prepare(
+      `SELECT f.*, s.bot_token, s.channel_id, s.name as account_name
+       FROM files f
+       JOIN storage_accounts s ON f.storage_account_id = s.id
+       WHERE f.group_id = ?
+       ORDER BY f.id ASC`
+    )
+    .all(groupId) as FileWithAccount[];
+}
+
+export function updateFileGroupPasswordHash(groupToken: string, passwordHash: string): void {
+  db
+    .prepare("UPDATE file_groups SET password_hash = ? WHERE token = ?")
+    .run(passwordHash, groupToken);
+}
+
 export function createFileRecord(data: {
   token: string;
   originalName: string;
@@ -440,6 +532,7 @@ export function createFileRecord(data: {
   storageEncryption?: StorageEncryption;
   storageKeyWrap?: string | null;
   contentEncryption?: ContentEncryption;
+  groupId?: number | null;
 }): FileRecord {
   const create = db.transaction(() => {
     const result = db
@@ -447,8 +540,8 @@ export function createFileRecord(data: {
         `INSERT INTO files (
           token, original_name, mime_type, size, content_size, storage_account_id,
           telegram_file_id, telegram_message_id, expires_at, max_downloads, password_hash,
-          storage_encryption, storage_key_wrap, content_encryption
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          storage_encryption, storage_key_wrap, content_encryption, group_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         data.token,
@@ -464,7 +557,8 @@ export function createFileRecord(data: {
         data.passwordHash,
         data.storageEncryption ?? "none",
         data.storageKeyWrap ?? null,
-        data.contentEncryption ?? "none"
+        data.contentEncryption ?? "none",
+        data.groupId ?? null
       );
 
     incrementAccountFileCount(data.storageAccountId);
@@ -485,6 +579,27 @@ export function getFileByToken(token: string): FileWithAccount | undefined {
        WHERE f.token = ?`
     )
     .get(token) as FileWithAccount | undefined;
+}
+
+export function reserveGroupDownload(token: string): boolean {
+  return (
+    db
+      .prepare(
+        `UPDATE file_groups
+         SET download_count = download_count + 1
+         WHERE token = ?
+           AND (max_downloads IS NULL OR download_count < max_downloads)`
+      )
+      .run(token).changes === 1
+  );
+}
+
+export function releaseGroupDownload(token: string): void {
+  db
+    .prepare(
+      "UPDATE file_groups SET download_count = MAX(download_count - 1, 0) WHERE token = ?"
+    )
+    .run(token);
 }
 
 export function updateFilePasswordHash(token: string, passwordHash: string): void {
@@ -573,14 +688,21 @@ export function getExpiredFilesForCleanup(limit = 100): FileWithAccount[] {
 export function deleteExpiredFileRecord(token: string): void {
   db.transaction(() => {
     const file = db
-      .prepare("SELECT storage_account_id FROM files WHERE token = ?")
-      .get(token) as { storage_account_id: number } | undefined;
+      .prepare("SELECT storage_account_id, group_id FROM files WHERE token = ?")
+      .get(token) as { storage_account_id: number; group_id: number | null } | undefined;
     if (!file) return;
 
     db.prepare("DELETE FROM files WHERE token = ?").run(token);
     db.prepare(
       "UPDATE storage_accounts SET files_count = MAX(files_count - 1, 0) WHERE id = ?"
     ).run(file.storage_account_id);
+
+    if (file.group_id !== null) {
+      const remaining = db
+        .prepare("SELECT 1 FROM files WHERE group_id = ? LIMIT 1")
+        .get(file.group_id);
+      if (!remaining) db.prepare("DELETE FROM file_groups WHERE id = ?").run(file.group_id);
+    }
   })();
 }
 

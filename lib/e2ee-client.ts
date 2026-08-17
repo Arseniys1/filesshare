@@ -259,6 +259,41 @@ export function readE2EEKeyFromHash(hash: string): Uint8Array | null {
   return raw;
 }
 
+export function addE2EEKeysToShareUrl(
+  shareUrl: string,
+  keys: Record<string, string>
+): string {
+  const payload = encodeBase64Url(new TextEncoder().encode(JSON.stringify(keys)));
+  return `${shareUrl.split("#", 1)[0]}#keys=${encodeURIComponent(payload)}`;
+}
+
+export function readE2EEKeysFromHash(hash: string): Record<string, Uint8Array> {
+  if (!hash.startsWith("#")) return {};
+  const encoded = new URLSearchParams(hash.slice(1)).get("keys");
+  if (!encoded) return {};
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(decodeBase64Url(encoded)));
+  } catch {
+    throw new Error("Некорректные ключи сквозного шифрования");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Некорректные ключи сквозного шифрования");
+  }
+
+  const result: Record<string, Uint8Array> = {};
+  for (const [token, value] of Object.entries(parsed)) {
+    if (!/^[A-Za-z0-9_-]{8,64}$/.test(token) || typeof value !== "string") {
+      throw new Error("Некорректные ключи сквозного шифрования");
+    }
+    const raw = decodeBase64Url(value);
+    if (raw.length !== KEY_BYTES) throw new Error("Некорректная длина ключа шифрования");
+    result[token] = raw;
+  }
+  return result;
+}
+
 class ByteReader {
   private readonly reader: ReadableStreamDefaultReader<Uint8Array>;
   private chunks: Uint8Array[] = [];
@@ -378,6 +413,27 @@ export async function decryptE2EEToSink(
     throw new Error("Размер расшифрованного E2EE-файла не совпадает с метаданными");
   }
   await sink.close();
+}
+
+export async function decryptE2EEToBlob(
+  body: ReadableStream<Uint8Array>,
+  rawKey: Uint8Array,
+  expectedSize: number,
+  mimeType: string
+): Promise<Blob> {
+  const chunks: Uint8Array[] = [];
+  await decryptE2EEToSink(
+    body,
+    rawKey,
+    {
+      write: async (chunk) => {
+        chunks.push(chunk.slice());
+      },
+      close: async () => {},
+    },
+    expectedSize
+  );
+  return new Blob(chunks.map(toArrayBuffer), { type: mimeType || "application/octet-stream" });
 }
 
 interface FileSystemWindow extends Window {

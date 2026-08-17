@@ -35,6 +35,52 @@ describe("database invariants", () => {
     expect(dbModule.reserveDownload(file.token)).toBe(false);
   });
 
+  it("groups files behind one download limit", () => {
+    const account = dbModule.getStorageAccountById(1)!;
+    const group = dbModule.createFileGroup({
+      token: "GroupDownloadTest1",
+      expiresAt: null,
+      maxDownloads: 2,
+      passwordHash: null,
+    });
+    const first = dbModule.createFileRecord({
+      token: "GroupFileTest1",
+      originalName: "one.txt",
+      mimeType: "text/plain",
+      size: 1,
+      storageAccountId: account.id,
+      telegramFileId: "group-file-id-1",
+      telegramMessageId: 10,
+      expiresAt: null,
+      maxDownloads: group.max_downloads,
+      passwordHash: null,
+      groupId: group.id,
+    });
+    dbModule.createFileRecord({
+      token: "GroupFileTest2",
+      originalName: "two.txt",
+      mimeType: "text/plain",
+      size: 2,
+      storageAccountId: account.id,
+      telegramFileId: "group-file-id-2",
+      telegramMessageId: 11,
+      expiresAt: null,
+      maxDownloads: group.max_downloads,
+      passwordHash: null,
+      groupId: group.id,
+    });
+
+    expect(dbModule.getFilesByGroupId(group.id).map((file) => file.token)).toEqual([
+      first.token,
+      "GroupFileTest2",
+    ]);
+    expect(dbModule.reserveGroupDownload(group.token)).toBe(true);
+    expect(dbModule.reserveGroupDownload(group.token)).toBe(true);
+    expect(dbModule.reserveGroupDownload(group.token)).toBe(false);
+    dbModule.releaseGroupDownload(group.token);
+    expect(dbModule.reserveGroupDownload(group.token)).toBe(true);
+  });
+
   it("upgrades an existing legacy password without invalidating its link", async () => {
     const account =
       dbModule.getStorageAccountById(1) ||

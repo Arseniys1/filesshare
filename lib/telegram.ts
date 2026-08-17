@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import {
   buildBotApiUrl,
   buildFileApiUrl,
@@ -173,7 +174,7 @@ export async function getTelegramFile(
 }
 
 export interface TelegramFileStream {
-  body: ReadableStream<Uint8Array>;
+  body: NodeReadableStream<Uint8Array>;
   contentLength?: string;
 }
 
@@ -184,7 +185,7 @@ export async function streamTelegramFile(
   if (isLocalTelegramApi() && path.isAbsolute(filePath)) {
     await access(filePath);
     return {
-      body: Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>,
+      body: Readable.toWeb(createReadStream(filePath)) as NodeReadableStream<Uint8Array>,
     };
   }
 
@@ -200,7 +201,7 @@ export async function streamTelegramFile(
   }
 
   return {
-    body: response.body,
+    body: response.body as unknown as NodeReadableStream<Uint8Array>,
     contentLength: response.headers.get("content-length") || undefined,
   };
 }

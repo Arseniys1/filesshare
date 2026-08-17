@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { createFileRecord, getActiveStorageAccounts } from "@/lib/db";
+import { encryptFileToPath, type ContentEncryption } from "@/lib/file-encryption";
 import { sendDocumentToChannel } from "@/lib/telegram";
 import {
   getMaxFileSizeBytes,
@@ -40,10 +41,12 @@ interface ParsedUpload {
   fileName: string;
   mimeType: string;
   size: number;
+  contentSize: number;
   filePath: string;
   expiry: string;
   password: string | null;
   maxDownloads: number | null;
+  contentEncryption: ContentEncryption;
 }
 
 function sanitizeFileName(name: string): string {
@@ -89,7 +92,7 @@ async function parseMultipartUpload(
 
   const parser = Busboy({
     headers: { "content-type": contentType },
-    limits: { files: 1, fields: 10, parts: 12, fileSize: maxSize },
+    limits: { files: 1, fields: 10, parts: 12, fileSize: maxSize + 256 * 1024 },
   });
   const input = Readable.fromWeb(
     request.body as Parameters<typeof Readable.fromWeb>[0]
@@ -105,7 +108,7 @@ async function parseMultipartUpload(
     };
 
     parser.on("field", (name, value) => {
-      if (["expiry", "password", "maxDownloads"].includes(name)) {
+      if (["expiry", "password", "maxDownloads", "contentEncryption", "originalSize"].includes(name)) {
         fields[name] = value.slice(0, 2048);
       }
     });
@@ -157,7 +160,21 @@ async function parseMultipartUpload(
           throw new UploadValidationError("Файл не выбран");
         }
         if (size === 0) throw new UploadValidationError("Нельзя загрузить пустой файл");
-        if (size > maxSize) {
+        const contentEncryption = fields.contentEncryption || "none";
+        if (contentEncryption !== "none" && contentEncryption !== "e2ee-v1") {
+          throw new UploadValidationError("Неизвестный режим шифрования содержимого");
+        }
+        let logicalSize = size;
+        if (contentEncryption === "e2ee-v1") {
+          if (!/^\d+$/.test(fields.originalSize || "")) {
+            throw new UploadValidationError("Не указан исходный размер E2EE-файла");
+          }
+          logicalSize = Number(fields.originalSize);
+          if (!Number.isSafeInteger(logicalSize) || logicalSize < 1) {
+            throw new UploadValidationError("Некорректный исходный размер E2EE-файла");
+          }
+        }
+        if (logicalSize > maxSize || (contentEncryption === "none" && size > maxSize)) {
           throw new UploadValidationError(`Максимальный размер файла — ${getMaxFileSizeLabel()}`);
         }
         if (fields.password && fields.password.length > 1024) {
@@ -177,11 +194,13 @@ async function parseMultipartUpload(
   return {
     fileName,
     mimeType,
-    size,
+    size: fields.contentEncryption === "e2ee-v1" ? Number(fields.originalSize) : size,
+    contentSize: size,
     filePath: filePath!,
     expiry: fields.expiry || "never",
     password: fields.password || null,
     maxDownloads: parseMaxDownloads(fields.maxDownloads),
+    contentEncryption: (fields.contentEncryption || "none") as ContentEncryption,
   };
 }
 
@@ -216,9 +235,14 @@ export async function POST(request: NextRequest) {
     const account = accounts[0];
     const token = generateFileToken();
     const expiresAt = computeExpiresAt(upload.expiry);
+    const encryptedPath = join(tempDir, "storage-payload.bin");
+    const encryptedFile = await encryptFileToPath(upload.filePath, encryptedPath);
+    if (encryptedFile.originalSize !== upload.contentSize) {
+      throw new Error("Размер файла изменился во время шифрования");
+    }
     const caption = [
-      `📁 ${upload.fileName}`,
-      `🔗 Token: ${token}`,
+      "🔐 FileShare storage",
+      `🔗 ${token}`,
       expiresAt ? `⏰ Expires: ${expiresAt}` : "",
     ]
       .filter(Boolean)
@@ -227,7 +251,7 @@ export async function POST(request: NextRequest) {
     const message = await sendDocumentToChannel(
       account.bot_token,
       account.channel_id,
-      { fileName: upload.fileName, filePath: upload.filePath },
+      { fileName: "storage-payload.bin", filePath: encryptedPath },
       caption
     );
 
@@ -240,15 +264,19 @@ export async function POST(request: NextRequest) {
       originalName: upload.fileName,
       mimeType: upload.mimeType,
       size: upload.size,
+      contentSize: upload.contentSize,
       storageAccountId: account.id,
       telegramFileId: message.document.file_id,
       telegramMessageId: message.message_id,
       expiresAt,
       maxDownloads: upload.maxDownloads,
       passwordHash: upload.password ? await hashPassword(upload.password) : null,
+      storageEncryption: encryptedFile.storageEncryption,
+      storageKeyWrap: encryptedFile.storageKeyWrap,
+      contentEncryption: upload.contentEncryption,
     });
 
-    finishUploadLease(lease, upload.size);
+    finishUploadLease(lease, upload.contentSize);
     leaseFinished = true;
 
     return NextResponse.json({
@@ -261,6 +289,8 @@ export async function POST(request: NextRequest) {
         expiresAt: record.expires_at,
         maxDownloads: record.max_downloads,
         hasPassword: !!record.password_hash,
+        storageEncrypted: record.storage_encryption === "server-v1",
+        contentEncryption: record.content_encryption,
         shareUrl: `${request.nextUrl.origin}/f/${record.token}`,
         createdAt: record.created_at,
       },

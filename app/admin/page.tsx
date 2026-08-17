@@ -29,6 +29,7 @@ interface CurrentUser {
 export default function AdminPage() {
   const [accounts, setAccounts] = useState<StorageAccount[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [legacyFiles, setLegacyFiles] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -37,6 +38,7 @@ export default function AdminPage() {
     channelId: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [migratingEncryption, setMigratingEncryption] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [authState, setAuthState] = useState<
@@ -88,6 +90,12 @@ export default function AdminPage() {
       const data = await res.json();
       setAccounts(data.accounts);
       setStats(data.stats);
+
+      const encryptionResponse = await fetch("/api/admin/encryption");
+      if (encryptionResponse.ok) {
+        const encryptionData = (await encryptionResponse.json()) as { legacyFiles: number };
+        setLegacyFiles(encryptionData.legacyFiles);
+      }
     } catch (err) {
       const msg =
         err instanceof TypeError
@@ -179,6 +187,33 @@ export default function AdminPage() {
     fetchData();
   };
 
+  const encryptLegacyFiles = async () => {
+    if (!legacyFiles || migratingEncryption) return;
+    if (!confirm(`Зашифровать старые файлы партиями? Обработать до 5 файлов сейчас.`)) return;
+
+    setMigratingEncryption(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/admin/encryption", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ limit: 5 }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Не удалось зашифровать старые файлы");
+
+      setLegacyFiles(data.legacyFiles ?? 0);
+      setSuccess(`Зашифровано файлов: ${data.migrated}. Осталось: ${data.legacyFiles ?? 0}.`);
+      if (data.warnings?.length) setError(data.warnings.join("\n"));
+      fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка миграции шифрования");
+    } finally {
+      setMigratingEncryption(false);
+    }
+  };
+
   if (authState === "unauthenticated") {
     return (
       <div className="max-w-md mx-auto px-4 py-32 animate-fade-in">
@@ -251,6 +286,26 @@ export default function AdminPage() {
               <p className="text-sm text-gray-400 mt-1">{stat.label}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {legacyFiles !== null && (
+        <div className="glass rounded-2xl p-5 mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="font-medium">Шифрование хранилища</p>
+            <p className="text-sm text-gray-400 mt-1">
+              {legacyFiles === 0
+                ? "Все файлы хранятся в зашифрованном виде."
+                : `Старых незашифрованных файлов: ${legacyFiles}.`}
+            </p>
+          </div>
+          <button
+            onClick={encryptLegacyFiles}
+            disabled={legacyFiles === 0 || migratingEncryption}
+            className="px-4 py-2.5 rounded-xl bg-accent/20 text-accent-light text-sm font-medium hover:bg-accent/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {migratingEncryption ? "Шифрование..." : "Зашифровать старые файлы"}
+          </button>
         </div>
       )}
 

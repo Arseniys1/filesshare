@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { addE2EEKeyToShareUrl, createE2EEMultipartUpload } from "@/lib/e2ee-client";
 import { EXPIRY_OPTIONS, formatFileSize } from "@/lib/utils";
 
 interface UploadedFile {
@@ -10,6 +11,8 @@ interface UploadedFile {
   shareUrl: string;
   expiresAt: string | null;
   hasPassword: boolean;
+  storageEncrypted: boolean;
+  contentEncryption: "none" | "e2ee-v1";
 }
 
 interface QueueItem {
@@ -37,10 +40,37 @@ export default function UploadZone({
   const [expiry, setExpiry] = useState("never");
   const [password, setPassword] = useState("");
   const [maxDownloads, setMaxDownloads] = useState("");
+  const [endToEndEncryption, setEndToEndEncryption] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadSingle = useCallback(async (file: File): Promise<UploadedFile> => {
+    if (endToEndEncryption) {
+      const encryptedUpload = createE2EEMultipartUpload(file, {
+        expiry,
+        ...(password ? { password } : {}),
+        ...(maxDownloads ? { maxDownloads } : {}),
+        contentEncryption: "e2ee-v1",
+        originalSize: String(file.size),
+      });
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${encryptedUpload.boundary}`,
+        },
+        body: encryptedUpload.body as unknown as BodyInit,
+        ...({ duplex: "half" } as RequestInit),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Ошибка загрузки");
+      }
+      return {
+        ...data.file,
+        shareUrl: addE2EEKeyToShareUrl(data.file.shareUrl, encryptedUpload.key),
+      };
+    }
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("expiry", expiry);
@@ -57,7 +87,7 @@ export default function UploadZone({
       throw new Error(data.error || "Ошибка загрузки");
     }
     return data.file;
-  }, [expiry, password, maxDownloads]);
+  }, [endToEndEncryption, expiry, password, maxDownloads]);
 
   const uploadFiles = useCallback(
     async (files: File[]) => {
@@ -246,7 +276,7 @@ export default function UploadZone({
 
       <div className="glass rounded-2xl p-6 space-y-4">
         <h3 className="font-medium text-gray-300">Настройки доступа</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">
               Срок действия
@@ -292,6 +322,51 @@ export default function UploadZone({
             />
           </div>
         </div>
+        <label
+          className={`flex w-full items-center gap-4 rounded-2xl border px-4 py-3.5 cursor-pointer transition-all ${
+            endToEndEncryption
+              ? "border-accent/40 bg-accent/10 shadow-[0_8px_24px_rgba(84,156,255,0.08)]"
+              : "border-white/10 bg-surface-overlay hover:border-accent/30 hover:bg-accent/[0.04]"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={endToEndEncryption}
+            onChange={(e) => setEndToEndEncryption(e.target.checked)}
+            disabled={uploading}
+            className="h-5 w-5 flex-shrink-0 accent-accent"
+          />
+          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-light">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M12 3l7 3v5c0 4.6-2.9 7.9-7 10-4.1-2.1-7-5.4-7-10V6l7-3z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M9.5 12l1.7 1.7 3.5-3.5"
+              />
+            </svg>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
+              Сквозное шифрование
+              <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-medium text-accent-light">
+                E2EE
+              </span>
+            </span>
+            <span className="mt-1 block text-xs text-gray-400">
+              Ключ будет только в ссылке. Потеря ссылки означает потерю доступа.
+            </span>
+          </span>
+          <span className={`hidden text-xs sm:block ${endToEndEncryption ? "text-accent-light" : "text-gray-500"}`}>
+            {endToEndEncryption ? "Включено" : "Выключено"}
+          </span>
+        </label>
       </div>
 
       {queue.length > 0 && (
@@ -377,6 +452,7 @@ export default function UploadZone({
                     </span>
                   )}
                   {file.hasPassword && <span> · 🔒 с паролем</span>}
+                  {file.storageEncrypted && <span> · 🛡️ зашифрован в хранилище</span>}
                 </p>
               </div>
               <button

@@ -5,6 +5,7 @@ import {
   isSafeFileToken,
   verifyDownloadGrant,
 } from "@/lib/download-grant";
+import { decryptedStreamToWeb } from "@/lib/file-encryption";
 import { getTelegramFile, streamTelegramFile } from "@/lib/telegram";
 import { isExpired } from "@/lib/utils";
 
@@ -62,16 +63,25 @@ export async function GET(
       throw new Error("Файл недоступен для скачивания");
     }
     const stream = await streamTelegramFile(file.bot_token, telegramFile.file_path);
+    if (file.storage_encryption === "server-v1" && !file.storage_key_wrap) {
+      throw new Error("У файла отсутствует ключ шифрования");
+    }
+    const body =
+      file.storage_encryption === "server-v1"
+        ? decryptedStreamToWeb(stream.body, file.storage_key_wrap!, file.content_size)
+        : stream.body;
+    const headers: Record<string, string> = {
+      "Content-Type": file.mime_type,
+      "Content-Disposition": contentDisposition(file.original_name),
+      "Content-Length": file.content_size.toString(),
+      "Cache-Control": "no-store, private",
+      "X-Content-Type-Options": "nosniff",
+    };
+    if (file.content_encryption !== "none") {
+      headers["X-File-Content-Encryption"] = file.content_encryption;
+    }
 
-    return new NextResponse(stream.body, {
-      headers: {
-        "Content-Type": file.mime_type,
-        "Content-Disposition": contentDisposition(file.original_name),
-        "Content-Length": stream.contentLength || file.size.toString(),
-        "Cache-Control": "no-store, private",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
+    return new NextResponse(body as unknown as BodyInit, { headers });
   } catch (error) {
     if (reserved && token) releaseDownloadReservation(token);
     console.error("Download error:", error);

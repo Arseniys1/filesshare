@@ -36,6 +36,7 @@ db.exec(`
     original_name TEXT NOT NULL,
     mime_type TEXT NOT NULL,
     size INTEGER NOT NULL,
+    content_size INTEGER NOT NULL DEFAULT 0,
     storage_account_id INTEGER NOT NULL,
     telegram_file_id TEXT NOT NULL,
     telegram_message_id INTEGER NOT NULL,
@@ -43,6 +44,9 @@ db.exec(`
     download_count INTEGER NOT NULL DEFAULT 0,
     max_downloads INTEGER,
     password_hash TEXT,
+    storage_encryption TEXT NOT NULL DEFAULT 'none',
+    storage_key_wrap TEXT,
+    content_encryption TEXT NOT NULL DEFAULT 'none',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (storage_account_id) REFERENCES storage_accounts(id)
   );
@@ -154,6 +158,24 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    id: "005_file_encryption_layers",
+    apply: () => {
+      if (!hasColumn("files", "content_size")) {
+        db.exec("ALTER TABLE files ADD COLUMN content_size INTEGER NOT NULL DEFAULT 0");
+      }
+      if (!hasColumn("files", "storage_encryption")) {
+        db.exec("ALTER TABLE files ADD COLUMN storage_encryption TEXT NOT NULL DEFAULT 'none'");
+      }
+      if (!hasColumn("files", "storage_key_wrap")) {
+        db.exec("ALTER TABLE files ADD COLUMN storage_key_wrap TEXT");
+      }
+      if (!hasColumn("files", "content_encryption")) {
+        db.exec("ALTER TABLE files ADD COLUMN content_encryption TEXT NOT NULL DEFAULT 'none'");
+      }
+      db.exec("UPDATE files SET content_size = size WHERE content_size = 0");
+    },
+  },
 ];
 
 db.exec("BEGIN IMMEDIATE");
@@ -184,6 +206,8 @@ export interface StorageAccount {
 }
 
 export type UserRole = "user" | "admin";
+export type StorageEncryption = "none" | "server-v1";
+export type ContentEncryption = "none" | "e2ee-v1";
 
 export interface UserRecord {
   id: number;
@@ -206,6 +230,7 @@ export interface FileRecord {
   original_name: string;
   mime_type: string;
   size: number;
+  content_size: number;
   storage_account_id: number;
   telegram_file_id: string;
   telegram_message_id: number;
@@ -213,6 +238,9 @@ export interface FileRecord {
   download_count: number;
   max_downloads: number | null;
   password_hash: string | null;
+  storage_encryption: StorageEncryption;
+  storage_key_wrap: string | null;
+  content_encryption: ContentEncryption;
   created_at: string;
   deletion_attempts: number;
   last_deletion_error: string | null;
@@ -402,32 +430,41 @@ export function createFileRecord(data: {
   originalName: string;
   mimeType: string;
   size: number;
+  contentSize?: number;
   storageAccountId: number;
   telegramFileId: string;
   telegramMessageId: number;
   expiresAt: string | null;
   maxDownloads: number | null;
   passwordHash: string | null;
+  storageEncryption?: StorageEncryption;
+  storageKeyWrap?: string | null;
+  contentEncryption?: ContentEncryption;
 }): FileRecord {
   const create = db.transaction(() => {
     const result = db
       .prepare(
         `INSERT INTO files (
-          token, original_name, mime_type, size, storage_account_id,
-          telegram_file_id, telegram_message_id, expires_at, max_downloads, password_hash
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          token, original_name, mime_type, size, content_size, storage_account_id,
+          telegram_file_id, telegram_message_id, expires_at, max_downloads, password_hash,
+          storage_encryption, storage_key_wrap, content_encryption
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         data.token,
         data.originalName,
         data.mimeType,
         data.size,
+        data.contentSize ?? data.size,
         data.storageAccountId,
         data.telegramFileId,
         data.telegramMessageId,
         data.expiresAt,
         data.maxDownloads,
-        data.passwordHash
+        data.passwordHash,
+        data.storageEncryption ?? "none",
+        data.storageKeyWrap ?? null,
+        data.contentEncryption ?? "none"
       );
 
     incrementAccountFileCount(data.storageAccountId);
@@ -478,6 +515,45 @@ export function getRecentFiles(limit = 20): FileRecord[] {
   return db
     .prepare("SELECT * FROM files ORDER BY created_at DESC LIMIT ?")
     .all(limit) as FileRecord[];
+}
+
+export function getLegacyStorageFiles(limit = 10): FileWithAccount[] {
+  return db
+    .prepare(
+      `SELECT f.*, s.bot_token, s.channel_id, s.name as account_name
+       FROM files f
+       JOIN storage_accounts s ON f.storage_account_id = s.id
+       WHERE f.storage_encryption = 'none'
+       ORDER BY f.created_at ASC
+       LIMIT ?`
+    )
+    .all(limit) as FileWithAccount[];
+}
+
+export function countLegacyStorageFiles(): number {
+  return (db
+    .prepare("SELECT COUNT(*) as count FROM files WHERE storage_encryption = 'none'")
+    .get() as { count: number }).count;
+}
+
+export function updateFileStorageEncryption(data: {
+  token: string;
+  telegramFileId: string;
+  telegramMessageId: number;
+  storageKeyWrap: string;
+}): boolean {
+  return (
+    db
+      .prepare(
+        `UPDATE files
+         SET telegram_file_id = ?,
+             telegram_message_id = ?,
+             storage_encryption = 'server-v1',
+             storage_key_wrap = ?
+         WHERE token = ? AND storage_encryption = 'none'`
+      )
+      .run(data.telegramFileId, data.telegramMessageId, data.storageKeyWrap, data.token).changes === 1
+  );
 }
 
 export function getExpiredFilesForCleanup(limit = 100): FileWithAccount[] {

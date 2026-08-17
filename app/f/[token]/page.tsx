@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { downloadE2EEFile, readE2EEKeyFromHash } from "@/lib/e2ee-client";
 import { formatFileSize, formatDate, getFileIcon } from "@/lib/utils";
 
 interface FileInfo {
@@ -13,6 +14,8 @@ interface FileInfo {
   downloadCount: number;
   maxDownloads: number | null;
   hasPassword: boolean;
+  storageEncrypted: boolean;
+  contentEncryption: "none" | "e2ee-v1";
   createdAt: string;
   expired: boolean;
   downloadsExceeded: boolean;
@@ -72,9 +75,32 @@ export default function SharePage() {
         }
       }
 
-      window.location.assign(`/api/download/${encodeURIComponent(token)}`);
-      downloadStarted = true;
-      window.setTimeout(() => setDownloading(false), 1000);
+      if (file?.contentEncryption === "e2ee-v1") {
+        const rawKey = readE2EEKeyFromHash(window.location.hash);
+        if (!rawKey) {
+          setError("В ссылке отсутствует ключ сквозного шифрования");
+          return;
+        }
+        const response = await fetch(`/api/download/${encodeURIComponent(token)}`);
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          setError(data.error || "Не удалось получить файл");
+          return;
+        }
+        await downloadE2EEFile({
+          response,
+          rawKey,
+          fileName: file.name,
+          mimeType: file.mimeType,
+          size: file.size,
+        });
+        downloadStarted = true;
+        setDownloading(false);
+      } else {
+        window.location.assign(`/api/download/${encodeURIComponent(token)}`);
+        downloadStarted = true;
+        window.setTimeout(() => setDownloading(false), 1000);
+      }
     } catch {
       setError("Ошибка при скачивании");
     } finally {
@@ -141,6 +167,18 @@ export default function SharePage() {
               <span>🔒 Пароль</span>
             </div>
           )}
+          {file.contentEncryption === "e2ee-v1" && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-400">Шифрование</span>
+              <span>🔐 Сквозное</span>
+            </div>
+          )}
+          {file.storageEncrypted && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-400">Хранение</span>
+              <span>🛡️ Зашифровано</span>
+            </div>
+          )}
         </div>
 
         {unavailable ? (
@@ -172,7 +210,11 @@ export default function SharePage() {
               disabled={downloading}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50 animate-pulse-glow"
             >
-              {downloading ? "Скачивание..." : "Скачать файл"}
+              {downloading
+                ? "Расшифровка..."
+                : file.contentEncryption === "e2ee-v1"
+                  ? "Расшифровать и скачать"
+                  : "Скачать файл"}
             </button>
           </div>
         )}

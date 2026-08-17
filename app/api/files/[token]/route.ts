@@ -29,6 +29,8 @@ export async function GET(
       downloadCount: file.download_count,
       maxDownloads: file.max_downloads,
       hasPassword: !!file.password_hash,
+      storageEncrypted: file.storage_encryption === "server-v1",
+      contentEncryption: file.content_encryption,
       createdAt: file.created_at,
       expired,
       downloadsExceeded,

@@ -50,6 +50,11 @@ function encodeBase64Url(value: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
+export function encodeE2EEKey(rawKey: Uint8Array): string {
+  if (rawKey.length !== KEY_BYTES) throw new Error("Некорректная длина ключа шифрования");
+  return encodeBase64Url(rawKey);
+}
+
 function decodeBase64Url(value: string): Uint8Array {
   if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("Некорректный ключ шифрования");
   const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
@@ -61,12 +66,29 @@ function decodeBase64Url(value: string): Uint8Array {
   return result;
 }
 
+export function decodeE2EEKey(value: string): Uint8Array {
+  const rawKey = decodeBase64Url(value);
+  if (rawKey.length !== KEY_BYTES) throw new Error("Некорректная длина ключа шифрования");
+  return rawKey;
+}
+
 function makeHeader(): Uint8Array {
   const header = new TextEncoder().encode(
     JSON.stringify({ version: CONTENT_ENCRYPTION_VERSION, chunkSize: E2EE_CHUNK_SIZE })
   );
   if (header.length > MAX_HEADER_BYTES) throw new Error("Слишком большой заголовок шифрования");
   return concatBytes(MAGIC, uint32(header.length), header);
+}
+
+export function getE2EEHeaderSize(): number {
+  return makeHeader().length;
+}
+
+export function getE2EEEncryptedSize(originalSize: number): number {
+  if (!Number.isSafeInteger(originalSize) || originalSize < 1) {
+    throw new Error("Некорректный размер E2EE-файла");
+  }
+  return getE2EEHeaderSize() + originalSize + Math.ceil(originalSize / E2EE_CHUNK_SIZE) * (IV_BYTES + TAG_BYTES);
 }
 
 function takePending(
@@ -162,7 +184,45 @@ export function createE2EEUpload(file: File): E2EEUpload {
     },
   });
 
-  return { body, key: encodeBase64Url(rawKey) };
+  return { body, key: encodeE2EEKey(rawKey) };
+}
+
+function uint64(value: number): Uint8Array {
+  const result = new Uint8Array(8);
+  new DataView(result.buffer).setBigUint64(0, BigInt(value));
+  return result;
+}
+
+async function deterministicIv(rawKey: Uint8Array, index: number): Promise<Uint8Array> {
+  const material = new Uint8Array(rawKey.length + 8);
+  material.set(rawKey);
+  material.set(uint64(index), rawKey.length);
+  const digest = await crypto.subtle.digest("SHA-256", toArrayBuffer(material));
+  return new Uint8Array(digest).slice(0, IV_BYTES);
+}
+
+/**
+ * Encrypts one deterministic E2EE part. Deterministic IVs are used only for
+ * resumable uploads so the browser can recreate a missing part after reload.
+ * The random-key requirement still guarantees IV uniqueness for a file.
+ */
+export async function encryptE2EEChunk(
+  file: File,
+  rawKey: Uint8Array,
+  index: number
+): Promise<Uint8Array> {
+  if (!Number.isSafeInteger(index) || index < 0) throw new Error("Некорректный номер E2EE-части");
+  const plain = new Uint8Array(await file.slice(index * E2EE_CHUNK_SIZE, (index + 1) * E2EE_CHUNK_SIZE).arrayBuffer());
+  if (plain.length === 0) throw new Error("Пустая E2EE-часть");
+  const key = await importEncryptionKey(rawKey, "encrypt");
+  const iv = await deterministicIv(rawKey, index);
+  const encrypted = new Uint8Array(await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: toArrayBuffer(iv), additionalData: toArrayBuffer(chunkAad(index)) },
+    key,
+    toArrayBuffer(plain)
+  ));
+  const frame = concatBytes(uint32(iv.length + encrypted.length), iv, encrypted);
+  return index === 0 ? concatBytes(makeHeader(), frame) : frame;
 }
 
 function escapeMultipartFilename(name: string): string {
@@ -254,9 +314,7 @@ export function readE2EEKeyFromHash(hash: string): Uint8Array | null {
   if (!hash.startsWith("#")) return null;
   const key = new URLSearchParams(hash.slice(1)).get("key");
   if (!key) return null;
-  const raw = decodeBase64Url(key);
-  if (raw.length !== KEY_BYTES) throw new Error("Некорректный ключ сквозного шифрования");
-  return raw;
+  return decodeE2EEKey(key);
 }
 
 export function addE2EEKeysToShareUrl(

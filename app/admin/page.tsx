@@ -26,10 +26,52 @@ interface CurrentUser {
   role: "user" | "admin";
 }
 
+interface AdminUser {
+  id: number;
+  email: string;
+  role: "user" | "admin";
+  blocked_at: string | null;
+  max_file_size: number | null;
+  storage_limit: number | null;
+  active_link_limit: number | null;
+  max_downloads: number | null;
+  max_parallel_uploads: number | null;
+  files_count: number;
+  storage_used: number;
+  created_at: string;
+}
+
+interface AdminFile {
+  token: string;
+  original_name: string;
+  size: number;
+  mime_type: string;
+  owner_email: string | null;
+  group_token: string | null;
+  expires_at: string | null;
+  download_count: number;
+  max_downloads: number | null;
+  revoked_at: string | null;
+  content_encryption: "none" | "e2ee-v1";
+  created_at: string;
+}
+
+interface AdminAudit {
+  id: number;
+  admin_email: string;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  created_at: string;
+}
+
 export default function AdminPage() {
   const [accounts, setAccounts] = useState<StorageAccount[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [legacyFiles, setLegacyFiles] = useState<number | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [adminFiles, setAdminFiles] = useState<AdminFile[]>([]);
+  const [auditEvents, setAuditEvents] = useState<AdminAudit[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -90,6 +132,20 @@ export default function AdminPage() {
       const data = await res.json();
       setAccounts(data.accounts);
       setStats(data.stats);
+
+      const usersResponse = await fetch("/api/admin/users");
+      if (usersResponse.ok) {
+        const usersData = await usersResponse.json();
+        setUsers(usersData.users);
+      }
+
+      const filesResponse = await fetch("/api/admin/files?limit=100");
+      if (filesResponse.ok) {
+        const filesData = await filesResponse.json();
+        setAdminFiles(filesData.files);
+      }
+      const auditResponse = await fetch("/api/admin/audit?limit=50");
+      if (auditResponse.ok) setAuditEvents((await auditResponse.json()).events);
 
       const encryptionResponse = await fetch("/api/admin/encryption");
       if (encryptionResponse.ok) {
@@ -214,6 +270,20 @@ export default function AdminPage() {
     }
   };
 
+  const updateUser = async (user: AdminUser, data: Record<string, unknown>) => {
+    const res = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: getHeaders(),
+      body: JSON.stringify({ id: user.id, ...data }),
+    });
+    const response = await res.json().catch(() => ({}));
+    if (!res.ok) setError(response.error || "Не удалось изменить пользователя");
+    else {
+      setSuccess("Настройки пользователя обновлены");
+      fetchData();
+    }
+  };
+
   if (authState === "unauthenticated") {
     return (
       <div className="max-w-md mx-auto px-4 py-32 animate-fade-in">
@@ -306,6 +376,60 @@ export default function AdminPage() {
           >
             {migratingEncryption ? "Шифрование..." : "Зашифровать старые файлы"}
           </button>
+        </div>
+      )}
+
+      {users.length > 0 && (
+        <div className="glass rounded-2xl p-5 mb-8">
+          <h3 className="font-medium mb-4">Пользователи и лимиты</h3>
+          <div className="space-y-4">
+            {users.map((user) => (
+              <div key={user.id} className="rounded-xl border border-white/10 p-4">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{user.email}</p>
+                    <p className="text-xs text-gray-500 mt-1">{user.files_count} файлов · {formatFileSize(user.storage_used)} · {user.blocked_at ? "заблокирован" : "активен"}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <select value={user.role} onChange={(event) => updateUser(user, { role: event.target.value })} className="bg-surface-overlay border border-white/10 rounded-lg px-2.5 py-2 text-sm">
+                      <option value="user">Пользователь</option><option value="admin">Администратор</option>
+                    </select>
+                    <button type="button" onClick={() => updateUser(user, { blocked: !user.blocked_at })} className="px-3 py-2 rounded-lg text-sm bg-white/5 hover:bg-white/10">{user.blocked_at ? "Разблокировать" : "Заблокировать"}</button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-3">
+                  {([
+                    ["maxFileSize", "Файл", user.max_file_size],
+                    ["storageLimit", "Хранилище", user.storage_limit],
+                    ["activeLinkLimit", "Ссылки", user.active_link_limit],
+                    ["maxDownloads", "Скачивания", user.max_downloads],
+                    ["maxParallelUploads", "Параллельно", user.max_parallel_uploads],
+                  ] as const).map(([field, label, value]) => (
+                    <label key={field} className="text-xs text-gray-500">{label}<input defaultValue={value ?? ""} placeholder="∞" type="number" min="1" onBlur={(event) => { const next = event.target.value; if (String(value ?? "") !== next) updateUser(user, { [field]: next || null }); }} className="mt-1 w-full bg-surface-overlay border border-white/10 rounded-lg px-2.5 py-2 text-sm text-gray-300" /></label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {adminFiles.length > 0 && (
+        <div className="glass rounded-2xl p-5 mb-8">
+          <h3 className="font-medium mb-4">Обзор всех файлов</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-gray-500"><tr><th className="pb-3 pr-4">Файл</th><th className="pb-3 pr-4">Владелец</th><th className="pb-3 pr-4">Размер</th><th className="pb-3 pr-4">Скачивания</th><th className="pb-3">Статус</th></tr></thead>
+              <tbody>{adminFiles.map((file) => <tr key={file.token} className="border-t border-white/5"><td className="py-3 pr-4 max-w-[260px] truncate" title={file.original_name}>{file.original_name}{file.content_encryption === "e2ee-v1" && <span className="ml-2 text-xs text-accent-light">E2EE</span>}</td><td className="py-3 pr-4 text-gray-400">{file.owner_email || "Гость"}</td><td className="py-3 pr-4 text-gray-400">{formatFileSize(file.size)}</td><td className="py-3 pr-4 text-gray-400">{file.download_count}{file.max_downloads ? ` / ${file.max_downloads}` : ""}</td><td className="py-3 text-gray-400">{file.revoked_at ? "Отозван" : "Активен"}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {auditEvents.length > 0 && (
+        <div className="glass rounded-2xl p-5 mb-8">
+          <h3 className="font-medium mb-4">Журнал действий администраторов</h3>
+          <div className="space-y-2 text-sm">{auditEvents.map((event) => <div key={event.id} className="flex flex-wrap gap-x-3 gap-y-1 border-b border-white/5 pb-2 text-gray-400"><span className="text-gray-300">{event.admin_email}</span><span>{event.action}</span><span>{event.target_type}{event.target_id ? ` #${event.target_id}` : ""}</span><span className="text-gray-600">{event.created_at}</span></div>)}</div>
         </div>
       )}
 

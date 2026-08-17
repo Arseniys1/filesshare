@@ -5,6 +5,7 @@ import {
   createSession as insertSession,
   deleteSession,
   getUserBySessionHash,
+  getUserBySessionHashIncludingBlocked,
   resetPasswordWithToken as resetPasswordWithTokenInDb,
   type AuthUserRecord,
   type UserRole,
@@ -86,6 +87,17 @@ export function getCurrentUser(request: NextRequest): PublicUser | null {
 
   const user = getUserBySessionHash(hashOpaqueToken(token));
   return user ? toPublicUser(user) : null;
+}
+
+export function getCurrentUserStatus(request: NextRequest): {
+  user: PublicUser | null;
+  blocked: boolean;
+} {
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) return { user: null, blocked: false };
+  const user = getUserBySessionHashIncludingBlocked(hashOpaqueToken(token));
+  if (!user) return { user: null, blocked: false };
+  return { user: toPublicUser(user), blocked: Boolean(user.blocked_at) };
 }
 
 export function setSessionCookie(response: NextResponse, token: string): void {

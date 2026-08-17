@@ -6,19 +6,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { createFileRecord, getActiveStorageAccounts, getFileGroupByToken } from "@/lib/db";
-import { encryptFileToPath, type ContentEncryption } from "@/lib/file-encryption";
-import { sendDocumentToChannel } from "@/lib/telegram";
+import { getActiveStorageAccounts, getUserById } from "@/lib/db";
+import { getCurrentUserStatus } from "@/lib/auth";
+import { type ContentEncryption } from "@/lib/file-encryption";
 import {
   getMaxFileSizeBytes,
   getMaxFileSizeLabel,
   isLocalTelegramApi,
 } from "@/lib/telegram-config";
-import {
-  computeExpiresAt,
-  generateFileToken,
-  hashPassword,
-} from "@/lib/utils";
+import { persistUploadedFile } from "@/lib/upload-service";
+import { validateUploadFileType } from "@/lib/file-validation";
+import { EXPIRY_OPTIONS } from "@/lib/utils";
 import {
   abandonUploadLease,
   acquireUploadLease,
@@ -45,7 +43,10 @@ interface ParsedUpload {
   filePath: string;
   expiry: string;
   password: string | null;
+  pin: string | null;
+  oneTime: boolean;
   maxDownloads: number | null;
+  maxRecipients: number | null;
   contentEncryption: ContentEncryption;
   groupToken: string | null;
 }
@@ -109,7 +110,7 @@ async function parseMultipartUpload(
     };
 
     parser.on("field", (name, value) => {
-      if (["expiry", "password", "maxDownloads", "contentEncryption", "originalSize", "groupToken"].includes(name)) {
+      if (["expiry", "password", "pin", "oneTime", "maxDownloads", "maxRecipients", "contentEncryption", "originalSize", "groupToken"].includes(name)) {
         fields[name] = value.slice(0, 2048);
       }
     });
@@ -175,11 +176,18 @@ async function parseMultipartUpload(
             throw new UploadValidationError("Некорректный исходный размер E2EE-файла");
           }
         }
-        if (logicalSize > maxSize || (contentEncryption === "none" && size > maxSize)) {
+        if (logicalSize > maxSize || size > maxSize) {
           throw new UploadValidationError(`Максимальный размер файла — ${getMaxFileSizeLabel()}`);
+        }
+        validateUploadFileType(fileName, mimeType);
+        if (fields.expiry && !EXPIRY_OPTIONS.some((option) => option.value === fields.expiry)) {
+          throw new UploadValidationError("Некорректный срок действия ссылки");
         }
         if (fields.password && fields.password.length > 1024) {
           throw new UploadValidationError("Пароль слишком длинный");
+        }
+        if (fields.pin && (fields.pin.length < 4 || fields.pin.length > 32)) {
+          throw new UploadValidationError("PIN-код должен содержать от 4 до 32 символов");
         }
         if (!settled) {
           settled = true;
@@ -200,10 +208,21 @@ async function parseMultipartUpload(
     filePath: filePath!,
     expiry: fields.expiry || "never",
     password: fields.password || null,
+    pin: fields.pin || null,
+    oneTime: fields.oneTime === "true" || fields.oneTime === "1",
     maxDownloads: parseMaxDownloads(fields.maxDownloads),
+    maxRecipients: parseMaxRecipients(fields.maxRecipients),
     contentEncryption: (fields.contentEncryption || "none") as ContentEncryption,
     groupToken: fields.groupToken || null,
   };
+}
+
+function parseMaxRecipients(value: string | undefined): number | null {
+  if (!value) return null;
+  if (!/^\d+$/.test(value)) throw new UploadValidationError("Лимит получателей должен быть целым числом");
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 1_000_000) throw new UploadValidationError("Лимит получателей должен быть от 1 до 1 000 000");
+  return parsed;
 }
 
 export async function POST(request: NextRequest) {
@@ -212,6 +231,11 @@ export async function POST(request: NextRequest) {
   let leaseFinished = false;
 
   try {
+    const sessionStatus = getCurrentUserStatus(request);
+    if (sessionStatus.blocked) {
+      return NextResponse.json({ error: "Пользователь заблокирован" }, { status: 403 });
+    }
+    const user = sessionStatus.user;
     const accounts = getActiveStorageAccounts();
     if (accounts.length === 0) {
       return NextResponse.json(
@@ -228,63 +252,35 @@ export async function POST(request: NextRequest) {
       Number.isSafeInteger(statedLength) && statedLength > 0
         ? statedLength
         : getMaxFileSizeBytes();
-    lease = acquireUploadLease(getClientIp(request.headers), expectedBytes);
+    const userRecord = user ? getUserById(user.id) : undefined;
+    lease = acquireUploadLease(
+      getClientIp(request.headers),
+      expectedBytes,
+      user?.id ?? null,
+      userRecord?.max_parallel_uploads ?? null
+    );
     const uploadRoot = process.env.UPLOAD_TEMP_DIR?.trim() || tmpdir();
     await mkdir(uploadRoot, { recursive: true });
     tempDir = await mkdtemp(join(uploadRoot, "filesshare-"));
 
     const upload = await parseMultipartUpload(request, tempDir, getMaxFileSizeBytes());
-    const group = upload.groupToken ? getFileGroupByToken(upload.groupToken) : null;
-    if (upload.groupToken && !group) {
-      throw new UploadValidationError("Группа файлов не найдена");
-    }
-    const account = accounts[0];
-    const token = generateFileToken();
-    const expiresAt = group ? group.expires_at : computeExpiresAt(upload.expiry);
-    const encryptedPath = join(tempDir, "storage-payload.bin");
-    const encryptedFile = await encryptFileToPath(upload.filePath, encryptedPath);
-    if (encryptedFile.originalSize !== upload.contentSize) {
-      throw new Error("Размер файла изменился во время шифрования");
-    }
-    const caption = [
-      "🔐 FileShare storage",
-      `🔗 ${token}`,
-      expiresAt ? `⏰ Expires: ${expiresAt}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    const message = await sendDocumentToChannel(
-      account.bot_token,
-      account.channel_id,
-      { fileName: "storage-payload.bin", filePath: encryptedPath },
-      caption
-    );
-
-    if (!message.document) {
-      throw new Error("Не удалось сохранить файл в хранилище");
-    }
-
-    const record = createFileRecord({
-      token,
-      originalName: upload.fileName,
+    const file = await persistUploadedFile({
+      filePath: upload.filePath,
+      tempDir,
+      fileName: upload.fileName,
       mimeType: upload.mimeType,
       size: upload.size,
       contentSize: upload.contentSize,
-      storageAccountId: account.id,
-      telegramFileId: message.document.file_id,
-      telegramMessageId: message.message_id,
-      expiresAt,
-      maxDownloads: group ? group.max_downloads : upload.maxDownloads,
-      passwordHash: group
-        ? group.password_hash
-        : upload.password
-          ? await hashPassword(upload.password)
-          : null,
-      storageEncryption: encryptedFile.storageEncryption,
-      storageKeyWrap: encryptedFile.storageKeyWrap,
+      expiry: upload.expiry,
+      password: upload.password,
+      pin: upload.pin,
+      oneTime: upload.oneTime,
+      maxDownloads: upload.maxDownloads,
+      maxRecipients: upload.maxRecipients,
       contentEncryption: upload.contentEncryption,
-      groupId: group?.id ?? null,
+      groupToken: upload.groupToken,
+      ownerUserId: user?.id ?? null,
+      origin: request.nextUrl.origin,
     });
 
     finishUploadLease(lease, upload.contentSize);
@@ -292,19 +288,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      file: {
-        token: record.token,
-        name: record.original_name,
-        size: record.size,
-        mimeType: record.mime_type,
-        expiresAt: record.expires_at,
-        maxDownloads: record.max_downloads,
-        hasPassword: !!record.password_hash,
-        storageEncrypted: record.storage_encryption === "server-v1",
-        contentEncryption: record.content_encryption,
-        shareUrl: `${request.nextUrl.origin}/f/${record.token}`,
-        createdAt: record.created_at,
-      },
+      file,
     });
   } catch (error) {
     if (error instanceof UploadRateLimitError) {

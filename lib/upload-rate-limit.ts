@@ -16,6 +16,7 @@ export class UploadRateLimitError extends Error {
 
 export interface UploadLease {
   ip: string;
+  userId: number | null;
   startedAt: number;
   reservedBytes: number;
 }
@@ -37,7 +38,12 @@ export function getClientIp(headers: Headers): string {
   return "direct";
 }
 
-export function acquireUploadLease(ip: string, expectedBytes = 0): UploadLease {
+export function acquireUploadLease(
+  ip: string,
+  expectedBytes = 0,
+  userId: number | null = null,
+  maxParallelUploads: number | null = null
+): UploadLease {
   const now = Date.now();
   const hourStart = bucketStart(now, HOUR_MS);
   const dayStart = bucketStart(now, DAY_MS);
@@ -48,6 +54,9 @@ export function acquireUploadLease(ip: string, expectedBytes = 0): UploadLease {
     );
     db.prepare(
       "UPDATE upload_leases SET active_uploads = 0 WHERE updated_at < ?"
+    ).run(now - LEASE_TTL_MS);
+    db.prepare(
+      "UPDATE user_upload_leases SET active_uploads = 0 WHERE updated_at < ?"
     ).run(now - LEASE_TTL_MS);
 
     for (const [windowName, start] of [
@@ -85,6 +94,13 @@ export function acquireUploadLease(ip: string, expectedBytes = 0): UploadLease {
     if ((lease?.active_uploads ?? 0) >= MAX_ACTIVE_UPLOADS) {
       throw new UploadRateLimitError(60);
     }
+    if (userId !== null && maxParallelUploads !== null) {
+      const userLease = db.prepare("SELECT active_uploads FROM user_upload_leases WHERE user_id = ?")
+        .get(userId) as { active_uploads: number } | undefined;
+      if ((userLease?.active_uploads ?? 0) >= maxParallelUploads) {
+        throw new UploadRateLimitError(60);
+      }
+    }
 
     db.prepare(
       `INSERT INTO upload_leases (ip, active_uploads, updated_at)
@@ -100,7 +116,17 @@ export function acquireUploadLease(ip: string, expectedBytes = 0): UploadLease {
        WHERE ip = ? AND window_name = 'day' AND bucket_start = ?`
     ).run(expectedBytes, ip, dayStart);
 
-    return { ip, startedAt: now, reservedBytes: expectedBytes };
+    if (userId !== null) {
+      db.prepare(
+        `INSERT INTO user_upload_leases (user_id, active_uploads, updated_at)
+         VALUES (?, 1, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+           active_uploads = user_upload_leases.active_uploads + 1,
+           updated_at = excluded.updated_at`
+      ).run(userId, now);
+    }
+
+    return { ip, userId, startedAt: now, reservedBytes: expectedBytes };
   })();
 }
 
@@ -110,6 +136,11 @@ function releaseLease(lease: UploadLease, keepBytes = false): void {
      SET active_uploads = MAX(active_uploads - 1, 0), updated_at = ?
      WHERE ip = ?`
   ).run(Date.now(), lease.ip);
+  if (lease.userId !== null) {
+    db.prepare(
+      "UPDATE user_upload_leases SET active_uploads = MAX(active_uploads - 1, 0), updated_at = ? WHERE user_id = ?"
+    ).run(Date.now(), lease.userId);
+  }
   if (!keepBytes) {
     const dayStart = bucketStart(lease.startedAt, DAY_MS);
     db.prepare(

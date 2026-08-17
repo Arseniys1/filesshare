@@ -39,6 +39,12 @@ export default function AuthNav() {
 
   return (
     <>
+      <Link
+        href="/dashboard"
+        className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+      >
+        Мои файлы
+      </Link>
       {user.role === "admin" && (
         <Link
           href="/admin"

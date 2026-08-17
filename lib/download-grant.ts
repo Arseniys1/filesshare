@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 const GRANT_TTL_SECONDS = 5 * 60;
+export const RECIPIENT_COOKIE_NAME = "fs_recipient";
 
 function getSecret(): string {
   const secret = process.env.DOWNLOAD_GRANT_SECRET?.trim();

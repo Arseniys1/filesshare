@@ -4,9 +4,8 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import {
   addE2EEKeysToShareUrl,
   addE2EEKeyToShareUrl,
-  createBufferedE2EEMultipartUpload,
-  createE2EEMultipartUpload,
 } from "@/lib/e2ee-client";
+import { uploadE2EEFileResumable, uploadFileResumable } from "@/lib/resumable-upload-client";
 import { EXPIRY_OPTIONS, formatFileSize } from "@/lib/utils";
 
 interface UploadedFile {
@@ -54,16 +53,50 @@ export default function UploadZone({
   const [isDragging, setIsDragging] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [transferProgress, setTransferProgress] = useState({ uploaded: 0, total: 0, parts: 0, totalParts: 0, speed: 0, remaining: 0 });
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [expiry, setExpiry] = useState("never");
   const [password, setPassword] = useState("");
+  const [pin, setPin] = useState("");
   const [maxDownloads, setMaxDownloads] = useState("");
+  const [maxRecipients, setMaxRecipients] = useState("");
+  const [oneTime, setOneTime] = useState(false);
   const [linkMode, setLinkMode] = useState<LinkMode>("group");
   const [endToEndEncryption, setEndToEndEncryption] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const expiryMenuRef = useRef<HTMLDetailsElement>(null);
+  const pausedRef = useRef(false);
+  const resumeResolversRef = useRef<Array<() => void>>([]);
+  const progressStartedRef = useRef<{ uploaded: number; at: number } | null>(null);
+
+  const waitForResume = useCallback(async () => {
+    if (!pausedRef.current) return;
+    await new Promise<void>((resolve) => resumeResolversRef.current.push(resolve));
+  }, []);
+
+  const setTransferProgressFromUpload = useCallback((uploaded: number, total: number, parts = 0, totalParts = 0) => {
+    const now = Date.now();
+    const previous = progressStartedRef.current;
+    const elapsed = previous ? Math.max(0.001, (now - previous.at) / 1000) : 0;
+    const speed = previous ? Math.max(0, (uploaded - previous.uploaded) / elapsed) : 0;
+    progressStartedRef.current = { uploaded, at: now };
+    setTransferProgress((current) => ({
+      uploaded,
+      total,
+      parts,
+      totalParts,
+      speed: speed || current.speed,
+      remaining: speed > 0 ? Math.max(0, (total - uploaded) / speed) : current.remaining,
+    }));
+  }, []);
+
+  const uploadProgressOptions = useCallback(() => ({
+    waitForResume,
+    onProgress: setTransferProgressFromUpload,
+  }), [setTransferProgressFromUpload, waitForResume]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -82,59 +115,47 @@ export default function UploadZone({
       body: JSON.stringify({
         expiry,
         ...(password ? { password } : {}),
+        ...(pin ? { pin } : {}),
+        ...(oneTime ? { oneTime } : {}),
         ...(maxDownloads ? { maxDownloads } : {}),
+        ...(maxRecipients ? { maxRecipients } : {}),
       }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Не удалось создать группу файлов");
     return data.group;
-  }, [expiry, maxDownloads, password]);
+  }, [expiry, maxDownloads, maxRecipients, oneTime, password, pin]);
 
   const uploadSingle = useCallback(async (file: File, groupToken?: string): Promise<UploadedFile> => {
     if (endToEndEncryption) {
-      const e2eeFields = {
+      const result = await uploadE2EEFileResumable(file, {
         expiry,
+        ...uploadProgressOptions(),
+        ...(password ? { password } : {}),
+        ...(pin ? { pin } : {}),
+        oneTime,
+        ...(maxDownloads ? { maxDownloads } : {}),
+        ...(maxRecipients ? { maxRecipients } : {}),
+        ...(groupToken ? { groupToken } : {}),
+      });
+      return {
+        ...(result.file as unknown as UploadedFile),
+        shareUrl: addE2EEKeyToShareUrl(result.file.shareUrl, result.key),
+        e2eeKey: result.key,
+      };
+    }
+
+    if (file.size > 4 * 1024 * 1024) {
+      return await uploadFileResumable(file, {
+        expiry,
+        ...uploadProgressOptions(),
         ...(groupToken ? { groupToken } : {}),
         ...(password ? { password } : {}),
+        ...(pin ? { pin } : {}),
+        ...(oneTime ? { oneTime } : {}),
         ...(maxDownloads ? { maxDownloads } : {}),
-        contentEncryption: "e2ee-v1",
-        originalSize: String(file.size),
-      };
-      let encryptedUpload = createE2EEMultipartUpload(file, e2eeFields);
-      let response: Response;
-      try {
-        response = await fetch("/api/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": `multipart/form-data; boundary=${encryptedUpload.boundary}`,
-          },
-          body: encryptedUpload.body as unknown as BodyInit,
-          ...({ duplex: "half" } as RequestInit),
-        });
-      } catch {
-        const bufferedUpload = await createBufferedE2EEMultipartUpload(file, e2eeFields);
-        encryptedUpload = {
-          body: bufferedUpload.body.stream(),
-          key: bufferedUpload.key,
-          boundary: bufferedUpload.boundary,
-        };
-        response = await fetch("/api/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": `multipart/form-data; boundary=${encryptedUpload.boundary}`,
-          },
-          body: bufferedUpload.body,
-        });
-      }
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Ошибка загрузки");
-      }
-      return {
-        ...data.file,
-        shareUrl: addE2EEKeyToShareUrl(data.file.shareUrl, encryptedUpload.key),
-        e2eeKey: encryptedUpload.key,
-      };
+        ...(maxRecipients ? { maxRecipients } : {}),
+      }) as UploadedFile;
     }
 
     const formData = new FormData();
@@ -142,7 +163,10 @@ export default function UploadZone({
     formData.append("expiry", expiry);
     if (groupToken) formData.append("groupToken", groupToken);
     if (password) formData.append("password", password);
+    if (pin) formData.append("pin", pin);
+    if (oneTime) formData.append("oneTime", "true");
     if (maxDownloads) formData.append("maxDownloads", maxDownloads);
+    if (maxRecipients) formData.append("maxRecipients", maxRecipients);
 
     const response = await fetch("/api/upload", {
       method: "POST",
@@ -154,7 +178,7 @@ export default function UploadZone({
       throw new Error(data.error || "Ошибка загрузки");
     }
     return data.file;
-  }, [endToEndEncryption, expiry, password, maxDownloads]);
+  }, [endToEndEncryption, expiry, maxDownloads, maxRecipients, oneTime, password, pin, uploadProgressOptions]);
 
   const uploadFiles = useCallback(
     async (files: File[]) => {
@@ -171,6 +195,11 @@ export default function UploadZone({
       }
 
       setUploading(true);
+      pausedRef.current = false;
+      setPaused(false);
+      setTransferProgress({ uploaded: 0, total: 0, parts: 0, totalParts: 0, speed: 0, remaining: 0 });
+      progressStartedRef.current = null;
+      resumeResolversRef.current = [];
       setGlobalError(null);
 
       const items: QueueItem[] = files.map((file, i) => ({
@@ -265,6 +294,10 @@ export default function UploadZone({
       }
 
       setUploading(false);
+      pausedRef.current = false;
+      setPaused(false);
+      const resolvers = resumeResolversRef.current.splice(0);
+      resolvers.forEach((resolve) => resolve());
     },
     [createGroup, linkMode, maxFileSize, maxFileSizeLabel, uploadSingle]
   );
@@ -286,6 +319,18 @@ export default function UploadZone({
     },
     [handleFiles]
   );
+
+  const pauseUpload = () => {
+    pausedRef.current = true;
+    setPaused(true);
+  };
+
+  const resumeUpload = () => {
+    pausedRef.current = false;
+    setPaused(false);
+    const resolvers = resumeResolversRef.current.splice(0);
+    resolvers.forEach((resolve) => resolve());
+  };
 
   const copyLink = async (url: string, token: string) => {
     await navigator.clipboard.writeText(url);
@@ -382,9 +427,20 @@ export default function UploadZone({
         )}
       </div>
 
+      {uploading && transferProgress.total > 0 && (
+        <div className="glass rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between text-xs text-gray-400 mb-2"><span>{paused ? "Загрузка приостановлена" : "Текущий файл"}</span><span>{Math.round((transferProgress.uploaded / transferProgress.total) * 100)}%</span></div>
+            <div className="h-2 bg-surface-overlay rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-accent to-purple-500 transition-all" style={{ width: `${Math.min(100, (transferProgress.uploaded / transferProgress.total) * 100)}%` }} /></div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mt-2"><span>{formatFileSize(transferProgress.uploaded)} / {formatFileSize(transferProgress.total)}</span>{transferProgress.totalParts > 0 && <span>Части: {transferProgress.parts} / {transferProgress.totalParts}</span>}{transferProgress.speed > 0 && <span>{formatFileSize(transferProgress.speed)} / с</span>}{transferProgress.remaining > 0 && <span>Осталось: {Math.ceil(transferProgress.remaining)} с</span>}</div>
+          </div>
+          <button type="button" onClick={paused ? resumeUpload : pauseUpload} className="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-white/5 text-gray-300 text-sm hover:bg-white/10">{paused ? "Продолжить" : "Пауза"}</button>
+        </div>
+      )}
+
       <div className="glass relative z-40 rounded-2xl p-6 space-y-4">
         <h3 className="font-medium text-gray-300">Настройки доступа</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">
               Срок действия
@@ -481,7 +537,34 @@ export default function UploadZone({
               className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600 disabled:opacity-50"
             />
           </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1.5">Лимит получателей</label>
+            <input
+              type="number"
+              value={maxRecipients}
+              onChange={(e) => setMaxRecipients(e.target.value)}
+              placeholder="Без ограничения"
+              min="1"
+              disabled={uploading}
+              className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600 disabled:opacity-50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1.5">PIN-код</label>
+            <input
+              type="password"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              placeholder="Необязательно"
+              disabled={uploading}
+              className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600 disabled:opacity-50"
+            />
+          </div>
         </div>
+        <label className="flex items-center gap-3 text-sm text-gray-400 cursor-pointer">
+          <input type="checkbox" checked={oneTime} onChange={(e) => setOneTime(e.target.checked)} disabled={uploading} className="h-4 w-4 accent-accent" />
+          Одноразовая ссылка — доступ только для одного скачивания
+        </label>
         <div>
           <span className="block text-sm text-gray-400 mb-1.5">Ссылки на файлы</span>
           <div

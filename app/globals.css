@@ -5,6 +5,34 @@
 :root {
   --background: #0a0a0f;
   --foreground: #f0f0f5;
+  --surface-raised: #16161f;
+  --surface-overlay: #1e1e2a;
+  --glass-background: rgba(22, 22, 31, 0.7);
+  --glass-hover-background: rgba(30, 30, 42, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --grid-line: rgba(99, 102, 241, 0.03);
+  --glow-primary: rgba(99, 102, 241, 0.15);
+  --glow-secondary: rgba(167, 139, 250, 0.08);
+}
+
+html.dark,
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+html.light,
+html[data-theme="light"] {
+  color-scheme: light;
+  --background: #f4f6fb;
+  --foreground: #172033;
+  --surface-raised: #ffffff;
+  --surface-overlay: #ffffff;
+  --glass-background: rgba(255, 255, 255, 0.78);
+  --glass-hover-background: rgba(255, 255, 255, 0.96);
+  --glass-border: rgba(15, 23, 42, 0.1);
+  --grid-line: rgba(79, 70, 229, 0.06);
+  --glow-primary: rgba(99, 102, 241, 0.12);
+  --glow-secondary: rgba(167, 139, 250, 0.1);
 }
 
 * {
@@ -19,9 +47,9 @@ body {
 
 @layer utilities {
   .glass {
-    background: rgba(22, 22, 31, 0.7);
+    background: var(--glass-background);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--glass-border);
   }
 
   .glass-hover {
@@ -29,7 +57,7 @@ body {
   }
 
   .glass-hover:hover {
-    background: rgba(30, 30, 42, 0.8);
+    background: var(--glass-hover-background);
     border-color: rgba(99, 102, 241, 0.3);
   }
 
@@ -61,15 +89,85 @@ body {
 
 .bg-grid {
   background-image:
-    linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 60px 60px;
 }
 
 .bg-glow {
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(167, 139, 250, 0.08), transparent);
+    radial-gradient(ellipse 80% 50% at 50% -20%, var(--glow-primary), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 60%, var(--glow-secondary), transparent);
+}
+
+html.light .bg-surface-overlay,
+html[data-theme="light"] .bg-surface-overlay {
+  background-color: var(--surface-overlay);
+}
+
+html.light .bg-surface-overlay\/95,
+html[data-theme="light"] .bg-surface-overlay\/95 {
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+html.light .text-gray-300,
+html[data-theme="light"] .text-gray-300 {
+  color: #475467;
+}
+
+html.light .text-gray-400,
+html[data-theme="light"] .text-gray-400 {
+  color: #667085;
+}
+
+html.light .text-gray-500,
+html[data-theme="light"] .text-gray-500 {
+  color: #667085;
+}
+
+html.light .text-gray-600,
+html[data-theme="light"] .text-gray-600 {
+  color: #98a2b3;
+}
+
+html.light .border-white\/5,
+html[data-theme="light"] .border-white\/5 {
+  border-color: rgba(15, 23, 42, 0.06);
+}
+
+html.light .border-white\/10,
+html[data-theme="light"] .border-white\/10 {
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+html.light .border-white\/20,
+html[data-theme="light"] .border-white\/20 {
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
+html.light .bg-white\/5,
+html[data-theme="light"] .bg-white\/5 {
+  background-color: rgba(15, 23, 42, 0.04);
+}
+
+html.light .hover\:bg-white\/5:hover,
+html[data-theme="light"] .hover\:bg-white\/5:hover {
+  background-color: rgba(15, 23, 42, 0.07);
+}
+
+html.light .hover\:bg-white\/10:hover,
+html[data-theme="light"] .hover\:bg-white\/10:hover {
+  background-color: rgba(15, 23, 42, 0.1);
+}
+
+html.light .placeholder\:text-gray-600::placeholder,
+html[data-theme="light"] .placeholder\:text-gray-600::placeholder {
+  color: #98a2b3;
+}
+
+html.light ::-webkit-scrollbar-thumb,
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(79, 70, 229, 0.3);
 }
 
 input[type="number"]::-webkit-inner-spin-button,

@@ -2,6 +2,22 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
 import AuthNav from "@/components/AuthNav";
+import ThemeToggle from "@/components/ThemeToggle";
+
+const themeScript = `
+(function () {
+  try {
+    var stored = localStorage.getItem("filesshare-theme");
+    var mode = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+    var isDark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.classList.toggle("dark", isDark);
+    document.documentElement.classList.toggle("light", !isDark);
+    document.documentElement.dataset.theme = isDark ? "dark" : "light";
+    document.documentElement.dataset.themeMode = mode;
+    document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+  } catch (_) {}
+})();
+`;
 
 export const metadata: Metadata = {
   title: "FileShare — Безопасный обмен файлами",
@@ -15,7 +31,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="font-sans antialiased">
         <div className="min-h-screen bg-grid bg-glow">
           <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
@@ -34,6 +53,7 @@ export default function RootLayout({
             </div>
           </header>
           <main className="pt-16">{children}</main>
+          <ThemeToggle />
         </div>
       </body>
     </html>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   addE2EEKeyToShareUrl,
   createBufferedE2EEMultipartUpload,
@@ -47,6 +47,17 @@ export default function UploadZone({
   const [endToEndEncryption, setEndToEndEncryption] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const expiryMenuRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const menu = expiryMenuRef.current;
+      if (menu?.open && !menu.contains(event.target as Node)) menu.open = false;
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
 
   const uploadSingle = useCallback(async (file: File): Promise<UploadedFile> => {
     if (endToEndEncryption) {
@@ -296,25 +307,77 @@ export default function UploadZone({
         )}
       </div>
 
-      <div className="glass rounded-2xl p-6 space-y-4">
+      <div className="glass relative z-40 rounded-2xl p-6 space-y-4">
         <h3 className="font-medium text-gray-300">Настройки доступа</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">
               Срок действия
             </label>
-            <select
-              value={expiry}
-              onChange={(e) => setExpiry(e.target.value)}
-              disabled={uploading}
-              className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 transition-colors disabled:opacity-50"
-            >
-              {EXPIRY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <details ref={expiryMenuRef} className="group relative z-50">
+              <summary
+                role="button"
+                aria-label="Срок действия ссылки"
+                aria-controls="expiry-options"
+                aria-haspopup="listbox"
+                onClick={(event) => {
+                  if (uploading) event.preventDefault();
+                }}
+                className="flex w-full cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-white/10 bg-surface-overlay px-4 py-2.5 text-left text-sm transition-all hover:border-accent/35 hover:bg-accent/[0.03] focus:outline-none focus:ring-4 focus:ring-accent/15 group-open:border-accent/60 group-open:bg-accent/[0.06] [&::-webkit-details-marker]:hidden"
+              >
+                <span>{EXPIRY_OPTIONS.find((option) => option.value === expiry)?.label}</span>
+                <svg
+                  className="h-4 w-4 flex-shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180 group-open:text-accent-light"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </summary>
+              <div
+                id="expiry-options"
+                role="listbox"
+                aria-label="Срок действия ссылки"
+                className="absolute left-0 top-full z-40 mt-2 w-60 max-w-[calc(100vw-2rem)] min-w-full overflow-hidden rounded-2xl border border-white/10 bg-surface-overlay p-2 shadow-2xl shadow-black/20 backdrop-blur-xl animate-fade-in"
+              >
+                <div className="space-y-1">
+                  {EXPIRY_OPTIONS.map((option) => {
+                    const selected = expiry === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        onClick={() => {
+                          setExpiry(option.value);
+                          if (expiryMenuRef.current) expiryMenuRef.current.open = false;
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
+                          selected
+                            ? "bg-accent/15 text-accent-light"
+                            : "text-gray-400 hover:bg-white/5 hover:text-gray-300"
+                        }`}
+                      >
+                        <span className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${selected ? "bg-accent/15" : "bg-white/5"}`}>
+                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
+                            <path d="M12 7.5V12l3 2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                        <span className="flex-1">{option.label}</span>
+                        {selected && (
+                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </details>
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">

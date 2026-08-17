@@ -10,17 +10,13 @@ interface AuthUser {
 
 export default function AuthNav() {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((response) => response.json())
       .then((data: { user: AuthUser | null }) => setUser(data.user))
-      .catch(() => setUser(null))
-      .finally(() => setLoaded(true));
+      .catch(() => setUser(null));
   }, []);
-
-  if (!loaded) return null;
 
   if (!user) {
     return (

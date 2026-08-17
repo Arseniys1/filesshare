@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { addE2EEKeyToShareUrl, createE2EEMultipartUpload } from "@/lib/e2ee-client";
+import {
+  addE2EEKeyToShareUrl,
+  createBufferedE2EEMultipartUpload,
+  createE2EEMultipartUpload,
+} from "@/lib/e2ee-client";
 import { EXPIRY_OPTIONS, formatFileSize } from "@/lib/utils";
 
 interface UploadedFile {
@@ -46,21 +50,39 @@ export default function UploadZone({
 
   const uploadSingle = useCallback(async (file: File): Promise<UploadedFile> => {
     if (endToEndEncryption) {
-      const encryptedUpload = createE2EEMultipartUpload(file, {
+      const e2eeFields = {
         expiry,
         ...(password ? { password } : {}),
         ...(maxDownloads ? { maxDownloads } : {}),
         contentEncryption: "e2ee-v1",
         originalSize: String(file.size),
-      });
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": `multipart/form-data; boundary=${encryptedUpload.boundary}`,
-        },
-        body: encryptedUpload.body as unknown as BodyInit,
-        ...({ duplex: "half" } as RequestInit),
-      });
+      };
+      let encryptedUpload = createE2EEMultipartUpload(file, e2eeFields);
+      let response: Response;
+      try {
+        response = await fetch("/api/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": `multipart/form-data; boundary=${encryptedUpload.boundary}`,
+          },
+          body: encryptedUpload.body as unknown as BodyInit,
+          ...({ duplex: "half" } as RequestInit),
+        });
+      } catch {
+        const bufferedUpload = await createBufferedE2EEMultipartUpload(file, e2eeFields);
+        encryptedUpload = {
+          body: bufferedUpload.body.stream(),
+          key: bufferedUpload.key,
+          boundary: bufferedUpload.boundary,
+        };
+        response = await fetch("/api/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": `multipart/form-data; boundary=${encryptedUpload.boundary}`,
+          },
+          body: bufferedUpload.body,
+        });
+      }
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || "Ошибка загрузки");

@@ -1,5 +1,6 @@
 export const CONTENT_ENCRYPTION_VERSION = "e2ee-v1" as const;
 export const E2EE_CHUNK_SIZE = 4 * 1024 * 1024;
+export const E2EE_BUFFERED_FALLBACK_LIMIT = 512 * 1024 * 1024;
 
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
@@ -34,6 +35,10 @@ function chunkAad(index: number): Uint8Array {
   const result = new Uint8Array(8);
   new DataView(result.buffer).setBigUint64(0, BigInt(index));
   return result;
+}
+
+function readUint32(value: Uint8Array): number {
+  return new DataView(value.buffer, value.byteOffset, value.byteLength).getUint32(0);
 }
 
 function encodeBase64Url(value: Uint8Array): string {
@@ -215,6 +220,32 @@ export function createE2EEMultipartUpload(
   return { body, key: encrypted.key, boundary };
 }
 
+export async function createBufferedE2EEMultipartUpload(
+  file: File,
+  fields: Record<string, string>
+): Promise<{ body: Blob; key: string; boundary: string }> {
+  if (file.size > E2EE_BUFFERED_FALLBACK_LIMIT) {
+    throw new Error(
+      "Потоковая E2EE-загрузка недоступна в этом соединении. Для файлов больше 512 МБ используйте HTTPS или Chrome/Edge."
+    );
+  }
+
+  const encrypted = createE2EEMultipartUpload(file, fields);
+  const reader = encrypted.body.getReader();
+  const chunks: ArrayBuffer[] = [];
+  while (true) {
+    const next = await reader.read();
+    if (next.done) break;
+    chunks.push(toArrayBuffer(next.value));
+  }
+
+  return {
+    body: new Blob(chunks, { type: `multipart/form-data; boundary=${encrypted.boundary}` }),
+    key: encrypted.key,
+    boundary: encrypted.boundary,
+  };
+}
+
 export function addE2EEKeyToShareUrl(shareUrl: string, key: string): string {
   return `${shareUrl.split("#", 1)[0]}#key=${encodeURIComponent(key)}`;
 }
@@ -294,7 +325,7 @@ export async function decryptE2EEToSink(
   const magic = await reader.readExactly(MAGIC.length);
   if (new TextDecoder().decode(magic) !== "FSE2EE1") throw new Error("Неизвестный формат E2EE-файла");
 
-  const headerLength = new DataView((await reader.readExactly(4)).buffer).getUint32(0);
+  const headerLength = readUint32(await reader.readExactly(4));
   if (headerLength < 2 || headerLength > MAX_HEADER_BYTES) {
     throw new Error("Поврежденный заголовок E2EE-файла");
   }
@@ -320,7 +351,7 @@ export async function decryptE2EEToSink(
   while (true) {
     const frameLengthBytes = await reader.readOptional(4);
     if (!frameLengthBytes) break;
-    const frameLength = new DataView(frameLengthBytes.buffer).getUint32(0);
+    const frameLength = readUint32(frameLengthBytes);
     if (frameLength < IV_BYTES + TAG_BYTES || frameLength > E2EE_CHUNK_SIZE + IV_BYTES + TAG_BYTES) {
       throw new Error("Поврежденный блок E2EE-файла");
     }
@@ -371,17 +402,11 @@ export async function downloadE2EEFile(options: {
   let sink: DownloadSink;
   let fallbackChunks: Uint8Array[] = [];
 
-  if (picker) {
-    const handle = await picker({
-      suggestedName: options.fileName,
-      types: [{ description: "Файл", accept: { [options.mimeType || "application/octet-stream"]: ["." + (options.fileName.split(".").pop() || "bin")] } }],
-    });
-    sink = await handle.createWritable();
-  } else {
-    if (options.size > 512 * 1024 * 1024) {
+  const createFallbackSink = (): DownloadSink => {
+    if (options.size > E2EE_BUFFERED_FALLBACK_LIMIT) {
       throw new Error("Для больших E2EE-файлов нужен Chrome или Edge с потоковым сохранением");
     }
-    sink = {
+    return {
       write: async (chunk) => {
         fallbackChunks.push(chunk.slice());
       },
@@ -396,12 +421,36 @@ export async function downloadE2EEFile(options: {
         fallbackChunks = [];
       },
     };
+  };
+
+  // Small files are buffered after decryption and downloaded through an
+  // anchor. This avoids requiring a user-activation-sensitive picker after
+  // the asynchronous HTTP request has completed.
+  if (options.size <= E2EE_BUFFERED_FALLBACK_LIMIT) {
+    sink = createFallbackSink();
+  } else if (picker) {
+    try {
+      const handle = await picker({
+        suggestedName: options.fileName,
+        types: [{ description: "Файл", accept: { [options.mimeType || "application/octet-stream"]: ["." + (options.fileName.split(".").pop() || "bin")] } }],
+      });
+      sink = await handle.createWritable();
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") throw error;
+      sink = createFallbackSink();
+    }
+  } else {
+    throw new Error("Для больших E2EE-файлов нужен Chrome или Edge с потоковым сохранением");
   }
 
   try {
     await decryptE2EEToSink(options.response.body, options.rawKey, sink, options.size);
   } catch (error) {
-    await sink.abort?.(error).catch(() => {});
+    try {
+      await sink.abort?.(error);
+    } catch {
+      // The download error is more useful than a cleanup error.
+    }
     fallbackChunks = [];
     throw error;
   }

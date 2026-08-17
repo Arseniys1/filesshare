@@ -101,8 +101,11 @@ export default function SharePage() {
         downloadStarted = true;
         window.setTimeout(() => setDownloading(false), 1000);
       }
-    } catch {
-      setError("Ошибка при скачивании");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      setError(error instanceof Error ? error.message : "Ошибка при скачивании");
     } finally {
       if (!downloadStarted) setDownloading(false);
     }

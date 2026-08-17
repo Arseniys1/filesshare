@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   addE2EEKeyToShareUrl,
+  createBufferedE2EEMultipartUpload,
   createE2EEUpload,
   decryptE2EEToSink,
+  downloadE2EEFile,
   readE2EEKeyFromHash,
 } from "@/lib/e2ee-client";
 
@@ -65,5 +67,83 @@ describe("client-side E2EE", () => {
     const shareUrl = addE2EEKeyToShareUrl("https://files.example/f/token", "abc_def");
     expect(shareUrl).toBe("https://files.example/f/token#key=abc_def");
     expect(() => readE2EEKeyFromHash("#key=abc_def")).toThrow();
+  });
+
+  it("can materialize a small E2EE multipart request for HTTP fallbacks", async () => {
+    const upload = await createBufferedE2EEMultipartUpload(
+      new File(["hello"], "hello.txt", { type: "text/plain" }),
+      { contentEncryption: "e2ee-v1", originalSize: "5" }
+    );
+    expect(upload.body.size).toBeGreaterThan(0);
+    expect(upload.body.type).toContain(upload.boundary.toLowerCase());
+    expect(upload.key).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  });
+
+  it("downloads small E2EE files without opening a save picker", async () => {
+    const original = new Uint8Array(4096);
+    original.fill(37);
+    const encrypted = createE2EEUpload(new File([original], "photo.jpg", { type: "image/jpeg" }));
+    const encryptedBytes = await readStream(encrypted.body);
+    let savedBlob: Blob | null = null;
+    let clicked = false;
+
+    const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
+    const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, "document");
+    const createObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
+    const revokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, "revokeObjectURL");
+
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        setTimeout,
+        showSaveFilePicker: async () => {
+          throw new Error("The save picker must not be called for a small file");
+        },
+      },
+    });
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: {
+        createElement: () => ({
+          click: () => {
+            clicked = true;
+          },
+        }),
+      },
+    });
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: (blob: Blob) => {
+        savedBlob = blob;
+        return "blob:test";
+      },
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: () => {},
+    });
+
+    try {
+      await downloadE2EEFile({
+        response: new Response(new Blob([asArrayBuffer(encryptedBytes)])),
+        rawKey: readE2EEKeyFromHash(`#key=${encrypted.key}`)!,
+        fileName: "photo.jpg",
+        mimeType: "image/jpeg",
+        size: original.length,
+      });
+    } finally {
+      if (windowDescriptor) Object.defineProperty(globalThis, "window", windowDescriptor);
+      else delete (globalThis as { window?: unknown }).window;
+      if (documentDescriptor) Object.defineProperty(globalThis, "document", documentDescriptor);
+      else delete (globalThis as { document?: unknown }).document;
+      if (createObjectUrlDescriptor) Object.defineProperty(URL, "createObjectURL", createObjectUrlDescriptor);
+      else delete (URL as { createObjectURL?: unknown }).createObjectURL;
+      if (revokeObjectUrlDescriptor) Object.defineProperty(URL, "revokeObjectURL", revokeObjectUrlDescriptor);
+      else delete (URL as { revokeObjectURL?: unknown }).revokeObjectURL;
+    }
+
+    expect(clicked).toBe(true);
+    expect(savedBlob).not.toBeNull();
+    expect(new Uint8Array(await savedBlob!.arrayBuffer())).toEqual(original);
   });
 });

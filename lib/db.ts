@@ -115,6 +115,45 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: "004_user_authentication",
+    apply: () => {
+      db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS sessions (
+        token_hash TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        token_hash TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        used_at INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id
+        ON password_reset_tokens(user_id);
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at
+        ON password_reset_tokens(expires_at);
+      `);
+    },
+  },
 ];
 
 db.exec("BEGIN IMMEDIATE");
@@ -141,6 +180,23 @@ export interface StorageAccount {
   channel_id: string;
   is_active: number;
   files_count: number;
+  created_at: string;
+}
+
+export type UserRole = "user" | "admin";
+
+export interface UserRecord {
+  id: number;
+  email: string;
+  password_hash: string;
+  role: UserRole;
+  created_at: string;
+}
+
+export interface AuthUserRecord {
+  id: number;
+  email: string;
+  role: UserRole;
   created_at: string;
 }
 
@@ -178,6 +234,114 @@ export function getAllStorageAccounts(): StorageAccount[] {
   return db
     .prepare("SELECT * FROM storage_accounts ORDER BY created_at DESC")
     .all() as StorageAccount[];
+}
+
+export function getUserByEmail(email: string): UserRecord | undefined {
+  return db
+    .prepare("SELECT * FROM users WHERE email = ?")
+    .get(email) as UserRecord | undefined;
+}
+
+export function getUserById(id: number): UserRecord | undefined {
+  return db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRecord | undefined;
+}
+
+export function getUserBySessionHash(tokenHash: string): AuthUserRecord | undefined {
+  const now = Date.now();
+  db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(now);
+  return db
+    .prepare(
+      `SELECT u.id, u.email, u.role, u.created_at
+       FROM sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.token_hash = ? AND s.expires_at > ?`
+    )
+    .get(tokenHash, now) as AuthUserRecord | undefined;
+}
+
+export function createUser(email: string, passwordHash: string): UserRecord {
+  const create = db.transaction(() => {
+    const userCount = (db.prepare("SELECT COUNT(*) as count FROM users").get() as {
+      count: number;
+    }).count;
+    const role: UserRole = userCount === 0 ? "admin" : "user";
+    const result = db
+      .prepare(
+        "INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)"
+      )
+      .run(email, passwordHash, role);
+    return getUserById(result.lastInsertRowid as number)!;
+  });
+
+  return create();
+}
+
+export function updateUserPassword(userId: number, passwordHash: string): void {
+  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(passwordHash, userId);
+}
+
+export function createSession(
+  tokenHash: string,
+  userId: number,
+  expiresAt: number
+): void {
+  const now = Date.now();
+  db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(now);
+  db.prepare(
+    "INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)"
+  ).run(tokenHash, userId, expiresAt, now);
+}
+
+export function deleteSession(tokenHash: string): void {
+  db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash);
+}
+
+export function deleteUserSessions(userId: number): void {
+  db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+}
+
+export function createPasswordResetToken(
+  tokenHash: string,
+  userId: number,
+  expiresAt: number
+): void {
+  const now = Date.now();
+  db.transaction(() => {
+    db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ? OR expires_at <= ?")
+      .run(userId, now);
+    db.prepare(
+      "INSERT INTO password_reset_tokens (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)"
+    ).run(tokenHash, userId, expiresAt, now);
+  })();
+}
+
+export function resetPasswordWithToken(
+  tokenHash: string,
+  passwordHash: string
+): boolean {
+  const reset = db.transaction(() => {
+    const now = Date.now();
+    const token = db
+      .prepare(
+        `SELECT user_id FROM password_reset_tokens
+         WHERE token_hash = ? AND expires_at > ? AND used_at IS NULL`
+      )
+      .get(tokenHash, now) as { user_id: number } | undefined;
+    if (!token) return false;
+
+    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(
+      passwordHash,
+      token.user_id
+    );
+    db.prepare("UPDATE password_reset_tokens SET used_at = ? WHERE token_hash = ?").run(
+      now,
+      tokenHash
+    );
+    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(token.user_id);
+    return true;
+  });
+
+  return reset();
 }
 
 export function getStorageAccountById(id: number): StorageAccount | undefined {

@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAllStorageAccounts,
@@ -9,23 +8,25 @@ import {
 } from "@/lib/db";
 import { testBotConnection } from "@/lib/telegram";
 import { getStats } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-function checkAdminAuth(request: NextRequest): boolean {
-  const adminKey = process.env.ADMIN_KEY?.trim();
-  if (!adminKey) return process.env.NODE_ENV !== "production";
-  const authHeader = request.headers.get("authorization");
-  const expected = Buffer.from(`Bearer ${adminKey}`);
-  const actual = Buffer.from(authHeader || "");
-  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+function requireAdmin(request: NextRequest): NextResponse | null {
+  const user = getCurrentUser(request);
+  if (!user) {
+    return NextResponse.json({ error: "Требуется вход" }, { status: 401 });
+  }
+  if (user.role !== "admin") {
+    return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
+  }
+  return null;
 }
 
 export async function GET(request: NextRequest) {
-  if (!checkAdminAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = requireAdmin(request);
+  if (authError) return authError;
 
   const accounts = getAllStorageAccounts();
   const stats = getStats();
@@ -45,9 +46,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!checkAdminAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = requireAdmin(request);
+  if (authError) return authError;
 
   try {
     const body = await request.json();
@@ -106,9 +106,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!checkAdminAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = requireAdmin(request);
+  if (authError) return authError;
 
   try {
     const body = await request.json();
@@ -134,9 +133,8 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!checkAdminAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = requireAdmin(request);
+  if (authError) return authError;
 
   try {
     const { searchParams } = new URL(request.url);

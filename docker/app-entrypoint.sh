@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-for required in ADMIN_KEY DOWNLOAD_GRANT_SECRET CLEANUP_KEY; do
+for required in DOWNLOAD_GRANT_SECRET CLEANUP_KEY SMTP_HOST SMTP_FROM; do
   eval "value=\${$required:-}"
   if [ -z "$value" ]; then
     echo "$required must be set in production" >&2

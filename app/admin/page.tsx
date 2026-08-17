@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { formatFileSize } from "@/lib/utils";
 
 interface StorageAccount {
@@ -20,6 +21,11 @@ interface Stats {
   expiredFiles: number;
 }
 
+interface CurrentUser {
+  email: string;
+  role: "user" | "admin";
+}
+
 export default function AdminPage() {
   const [accounts, setAccounts] = useState<StorageAccount[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -33,33 +39,44 @@ export default function AdminPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [adminKey, setAdminKey] = useState("");
-  const [needsAuth, setNeedsAuth] = useState(false);
+  const [authState, setAuthState] = useState<
+    "loading" | "allowed" | "unauthenticated" | "forbidden"
+  >("loading");
   const [skipConnectionTest, setSkipConnectionTest] = useState(false);
 
-  useEffect(() => {
-    const saved = sessionStorage.getItem("adminKey");
-    if (saved) setAdminKey(saved);
-  }, []);
-
   const getHeaders = useCallback(() => {
-    const headers: Record<string, string> = {
+    return {
       "Content-Type": "application/json",
     };
-    if (adminKey) {
-      headers["Authorization"] = `Bearer ${adminKey}`;
-    }
-    return headers;
-  }, [adminKey]);
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
+      const meResponse = await fetch("/api/auth/me");
+      const meData = (await meResponse.json()) as { user: CurrentUser | null };
+      if (!meData.user) {
+        setAuthState("unauthenticated");
+        setLoading(false);
+        return;
+      }
+      if (meData.user.role !== "admin") {
+        setAuthState("forbidden");
+        setLoading(false);
+        return;
+      }
+
+      setAuthState("allowed");
       const res = await fetch("/api/admin/accounts", {
         headers: getHeaders(),
       });
 
       if (res.status === 401) {
-        setNeedsAuth(true);
+        setAuthState("unauthenticated");
+        setLoading(false);
+        return;
+      }
+      if (res.status === 403) {
+        setAuthState("forbidden");
         setLoading(false);
         return;
       }
@@ -71,8 +88,6 @@ export default function AdminPage() {
       const data = await res.json();
       setAccounts(data.accounts);
       setStats(data.stats);
-      setNeedsAuth(false);
-      if (adminKey) sessionStorage.setItem("adminKey", adminKey);
     } catch (err) {
       const msg =
         err instanceof TypeError
@@ -84,7 +99,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [getHeaders, adminKey]);
+  }, [getHeaders]);
 
   useEffect(() => {
     fetchData();
@@ -164,40 +179,39 @@ export default function AdminPage() {
     fetchData();
   };
 
-  if (needsAuth) {
+  if (authState === "unauthenticated") {
     return (
       <div className="max-w-md mx-auto px-4 py-32 animate-fade-in">
         <div className="glass rounded-2xl p-8 gradient-border">
           <h1 className="text-2xl font-bold mb-4 text-center">Админ-панель</h1>
           <p className="text-gray-400 text-sm mb-6 text-center">
-            Введите ключ из файла <code className="text-accent-light">.env</code> (ADMIN_KEY)
+            Для доступа к панели войдите в аккаунт администратора.
           </p>
-          <input
-            type="password"
-            value={adminKey}
-            onChange={(e) => setAdminKey(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && (setLoading(true), fetchData())}
-            placeholder="your-secret-admin-key-here"
-            className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 mb-4"
-          />
-          {error && (
-            <p className="text-red-400 text-sm mb-4 text-center">{error}</p>
-          )}
-          <button
-            onClick={() => {
-              setLoading(true);
-              fetchData();
-            }}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity"
+          <Link
+            href="/login?next=/admin"
+            className="block text-center w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity"
           >
             Войти
-          </button>
+          </Link>
         </div>
       </div>
     );
   }
 
-  if (loading) {
+  if (authState === "forbidden") {
+    return (
+      <div className="max-w-md mx-auto px-4 py-32 animate-fade-in">
+        <div className="glass rounded-2xl p-8 text-center gradient-border">
+          <h1 className="text-2xl font-bold mb-4">Недостаточно прав</h1>
+          <p className="text-gray-400 text-sm">
+            Админ-панель доступна только пользователям с ролью администратора.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authState === "loading" || loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-32 text-center">
         <div className="w-12 h-12 mx-auto border-2 border-accent/30 border-t-accent rounded-full animate-spin" />

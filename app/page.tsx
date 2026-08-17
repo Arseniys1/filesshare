@@ -17,7 +17,7 @@ export default function HomePage() {
         </h1>
         <p className="text-gray-400 text-lg max-w-xl mx-auto">
           Загружайте файлы пачкой, получайте ссылки для скачивания.
-          Хранение в Telegram с ограничением доступа по времени.
+          Защищённое хранение с ограничением доступа по времени.
         </p>
       </div>
 
@@ -30,7 +30,7 @@ export default function HomePage() {
           {
             icon: "⚡",
             title: "Быстрая загрузка",
-            desc: "Файлы мгновенно сохраняются в Telegram",
+            desc: "Файлы быстро сохраняются в защищённое хранилище",
           },
           {
             icon: "🔒",
@@ -40,7 +40,7 @@ export default function HomePage() {
           {
             icon: "☁️",
             title: "Надёжное хранение",
-            desc: "Несколько Telegram-аккаунтов для резервирования",
+            desc: "Файлы доступны по ссылке с заданными ограничениями",
           },
         ].map((feature) => (
           <div

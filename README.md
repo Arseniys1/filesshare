@@ -14,10 +14,10 @@ FileShare — сервис обмена файлами через приватн
 
 Нужны Docker Compose, домен и TLS-сертификаты `fullchain.pem` и `privkey.pem` в папке `certs/`. Внешне доступны только порты 80 и 443 Nginx; приложение, SQLite и локальный Bot API не публикуют порты на хост.
 
-1. Скопируйте `.env.example` в `.env`, заполните три случайных секрета и `TELEGRAM_API_ID` / `TELEGRAM_API_HASH`.
+1. Скопируйте `.env.example` в `.env`, заполните случайные `DOWNLOAD_GRANT_SECRET` / `CLEANUP_KEY`, SMTP-параметры и `TELEGRAM_API_ID` / `TELEGRAM_API_HASH`.
 2. Поместите TLS-сертификаты в `certs/fullchain.pem` и `certs/privkey.pem`.
 3. Запустите `docker compose up --build -d`. При первой сборке Docker компилирует официальный локальный Telegram Bot API, поэтому она занимает заметное время.
-4. Добавьте бота в приватный канал как администратора с правами публикации и удаления сообщений, затем добавьте его в `/admin`.
+4. Откройте `/register` и зарегистрируйте первого пользователя — он автоматически получает роль администратора. Войдите в `/admin`, добавьте бота в приватный канал как администратора с правами публикации и удаления сообщений, затем добавьте его в панель.
 5. Один раз проверьте очистку без удаления:
 
    ```bash
@@ -45,7 +45,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Без локального Telegram Bot API лимит загрузки равен 50 МБ. Для production `ADMIN_KEY`, `DOWNLOAD_GRANT_SECRET` и `CLEANUP_KEY` обязательны.
+Без локального Telegram Bot API лимит загрузки равен 50 МБ. Для production обязательны `DOWNLOAD_GRANT_SECRET`, `CLEANUP_KEY`, `SMTP_HOST` и `SMTP_FROM`. Пользователи и их роли хранятся в SQLite; первый зарегистрированный пользователь становится администратором.
 
 ## API
 
@@ -55,7 +55,12 @@ npm run dev
 | `GET` | `/api/files/:token` | Публичные метаданные файла |
 | `POST` | `/api/files/:token/access` | Проверка пароля и выдача короткой download-cookie |
 | `GET` | `/api/download/:token` | Потоковое скачивание; пароль не передаётся в URL |
-| `GET/POST/PATCH/DELETE` | `/api/admin/accounts` | Управление Telegram-аккаунтами по Bearer `ADMIN_KEY` |
+| `POST` | `/api/auth/register` | Регистрация пользователя |
+| `POST` | `/api/auth/login` | Вход и создание HttpOnly-сессии |
+| `POST` | `/api/auth/logout` | Выход и удаление сессии |
+| `POST` | `/api/auth/forgot-password` | Запрос ссылки восстановления пароля |
+| `POST` | `/api/auth/reset-password` | Установка нового пароля по одноразовому токену |
+| `GET/POST/PATCH/DELETE` | `/api/admin/accounts` | Управление Telegram-аккаунтами для пользователей с ролью `admin` |
 
 Пароль для скачивания принимается только маршрутом `/access`; query-параметр `password` и заголовок `x-file-password` больше не поддерживаются.
 

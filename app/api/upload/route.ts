@@ -124,9 +124,9 @@ async function parseMultipartUpload(
       });
       stream.on("limit", () => {
         validationError = new UploadValidationError(
-          `Максимальный размер файла — ${getMaxFileSizeLabel()}${
+            `Максимальный размер файла — ${getMaxFileSizeLabel()}${
             !isLocalTelegramApi()
-              ? ". Для файлов до 2 ГБ настройте локальный Telegram Bot API (TELEGRAM_API_BASE в .env)"
+              ? ". Для файлов большего размера требуется расширенная конфигурация сервиса"
               : ""
           }`
         );
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Нет настроенных аккаунтов хранения. Добавьте Telegram-бота в админ-панели.",
+            "Сервис хранения пока не настроен. Обратитесь к администратору.",
         },
         { status: 503 }
       );
@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (!message.document) {
-      throw new Error("Не удалось загрузить файл в Telegram");
+      throw new Error("Не удалось сохранить файл в хранилище");
     }
 
     const record = createFileRecord({

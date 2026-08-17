@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
+import AuthNav from "@/components/AuthNav";
 
 export const metadata: Metadata = {
-  title: "FileShare — Обмен файлами через Telegram",
+  title: "FileShare — Безопасный обмен файлами",
   description:
     "Безопасная загрузка и обмен файлами с ограничением доступа по времени",
 };
@@ -27,13 +28,8 @@ export default function RootLayout({
                   File<span className="gradient-text">Share</span>
                 </span>
               </Link>
-              <nav className="flex items-center gap-4">
-                <Link
-                  href="/admin"
-                  className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
-                >
-                  Админ
-                </Link>
+              <nav className="flex items-center gap-1 sm:gap-4">
+                <AuthNav />
               </nav>
             </div>
           </header>

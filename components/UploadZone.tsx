@@ -45,6 +45,8 @@ interface UploadZoneProps {
   maxFileSizeLabel: string;
 }
 
+type LinkMode = "group" | "individual";
+
 export default function UploadZone({
   maxFileSize,
   maxFileSizeLabel,
@@ -57,6 +59,7 @@ export default function UploadZone({
   const [expiry, setExpiry] = useState("never");
   const [password, setPassword] = useState("");
   const [maxDownloads, setMaxDownloads] = useState("");
+  const [linkMode, setLinkMode] = useState<LinkMode>("group");
   const [endToEndEncryption, setEndToEndEncryption] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -180,8 +183,9 @@ export default function UploadZone({
       const results: UploadedFile[] = [];
       const errors: string[] = [];
       let group: FileGroupUpload | null = null;
+      const shouldCreateGroup = files.length > 1 && linkMode === "group";
 
-      if (files.length > 1) {
+      if (shouldCreateGroup) {
         try {
           group = await createGroup();
         } catch (err) {
@@ -191,7 +195,7 @@ export default function UploadZone({
         }
       }
 
-      for (let i = 0; i < items.length && (files.length === 1 || group !== null); i++) {
+      for (let i = 0; i < items.length && (!shouldCreateGroup || group !== null); i++) {
         const item = items[i];
 
         setQueue((prev) =>
@@ -222,7 +226,7 @@ export default function UploadZone({
         }
       }
 
-      if (group && results.length > 0) {
+      if (shouldCreateGroup && group && results.length > 0) {
         const e2eeKeys = Object.fromEntries(
           results
             .filter((result) => result.e2eeKey)
@@ -252,15 +256,17 @@ export default function UploadZone({
       }
       if (errors.length > 0) {
         setGlobalError(
-          errors.length === items.length
+          shouldCreateGroup && !group
             ? errors.join("\n")
-            : `Не загружено ${errors.length} из ${items.length}:\n${errors.join("\n")}`
+            : errors.length === items.length
+              ? errors.join("\n")
+              : `Не загружено ${errors.length} из ${items.length}:\n${errors.join("\n")}`
         );
       }
 
       setUploading(false);
     },
-    [createGroup, maxFileSize, maxFileSizeLabel, uploadSingle]
+    [createGroup, linkMode, maxFileSize, maxFileSizeLabel, uploadSingle]
   );
 
   const handleFiles = useCallback(
@@ -351,7 +357,7 @@ export default function UploadZone({
         {uploading ? (
           <div className="space-y-3">
             <p className="text-lg font-medium">
-              {totalCount > 1
+              {totalCount > 1 && linkMode === "group"
                 ? "Загрузка группы файлов..."
                 : `Загрузка ${doneCount + 1} из ${totalCount}...`}
             </p>
@@ -476,6 +482,70 @@ export default function UploadZone({
             />
           </div>
         </div>
+        <div>
+          <span className="block text-sm text-gray-400 mb-1.5">Ссылки на файлы</span>
+          <div
+            role="radiogroup"
+            aria-label="Способ создания ссылок"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-surface-overlay p-1.5"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={linkMode === "group"}
+              disabled={uploading}
+              onClick={() => setLinkMode("group")}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                linkMode === "group"
+                  ? "bg-accent/15 text-accent-light shadow-sm"
+                  : "text-gray-400 hover:bg-white/5 hover:text-gray-300"
+              }`}
+            >
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white/5">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M7 7h10M7 12h10M7 17h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <rect x="3.5" y="3.5" width="17" height="17" rx="4" stroke="currentColor" strokeWidth="1.5" />
+                </svg>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">Одна общая ссылка</span>
+                <span className="mt-0.5 block text-xs opacity-70">Список файлов и «Скачать всё»</span>
+              </span>
+              {linkMode === "group" && (
+                <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={linkMode === "individual"}
+              disabled={uploading}
+              onClick={() => setLinkMode("individual")}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                linkMode === "individual"
+                  ? "bg-accent/15 text-accent-light shadow-sm"
+                  : "text-gray-400 hover:bg-white/5 hover:text-gray-300"
+              }`}
+            >
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white/5">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M8.5 15.5 15.5 8.5M6.5 18.5H5a2.5 2.5 0 0 1-2.5-2.5v-9A2.5 2.5 0 0 1 5 4.5h9A2.5 2.5 0 0 1 16.5 7v1.5M9.5 19.5h9a2.5 2.5 0 0 0 2.5-2.5V8a2.5 2.5 0 0 0-2.5-2.5h-1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">Отдельная ссылка</span>
+                <span className="mt-0.5 block text-xs opacity-70">Своя ссылка для каждого файла</span>
+              </span>
+              {linkMode === "individual" && (
+                <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
         <label
           className={`flex w-full items-center gap-4 rounded-2xl border px-4 py-3.5 cursor-pointer transition-all ${
             endToEndEncryption
@@ -563,7 +633,7 @@ export default function UploadZone({
         <div className="space-y-3 animate-slide-up">
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-gray-300">
-              Общие ссылки ({uploadedFiles.length})
+              Ссылки на файлы ({uploadedFiles.length})
             </h3>
             {uploadedFiles.length > 1 && (
               <button

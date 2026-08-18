@@ -524,11 +524,15 @@ export interface AdminFileRecord {
   mime_type: string;
   owner_email: string | null;
   group_token: string | null;
+  group_revoked_at: string | null;
   expires_at: string | null;
   download_count: number;
   max_downloads: number | null;
   revoked_at: string | null;
   content_encryption: ContentEncryption;
+  telegram_deleted_at: string | null;
+  deletion_attempts: number;
+  last_deletion_error: string | null;
   created_at: string;
 }
 
@@ -734,10 +738,27 @@ export function getAllUsers(): AdminUserRecord[] {
   ).all() as AdminUserRecord[];
 }
 
-export function getAdminUsersPage(page = 1, limit = 20): AdminPagination<AdminUserRecord> {
+export function getAdminUsersPage(
+  page = 1,
+  limit = 20,
+  query?: string,
+  status?: "active" | "blocked"
+): AdminPagination<AdminUserRecord> {
   const safePage = Math.max(1, Math.floor(page));
   const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100);
-  const total = (db.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number }).count;
+  const normalizedQuery = query?.trim().toLowerCase();
+  const conditions: string[] = [];
+  const parameters: string[] = [];
+  if (normalizedQuery) {
+    conditions.push("lower(u.email) LIKE ?");
+    parameters.push(`%${normalizedQuery}%`);
+  }
+  if (status === "active") conditions.push("u.blocked_at IS NULL");
+  if (status === "blocked") conditions.push("u.blocked_at IS NOT NULL");
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const total = (db.prepare(
+    `SELECT COUNT(*) AS count FROM users u ${where}`
+  ).get(...parameters) as { count: number }).count;
   const users = db.prepare(
     `SELECT u.id, u.email, u.role, u.blocked_at, u.max_file_size, u.storage_limit,
             u.active_link_limit, u.max_downloads, u.max_parallel_uploads, u.created_at,
@@ -745,10 +766,11 @@ export function getAdminUsersPage(page = 1, limit = 20): AdminPagination<AdminUs
             COALESCE(SUM(f.size), 0) AS storage_used
      FROM users u
      LEFT JOIN files f ON f.owner_user_id = u.id
+     ${where}
      GROUP BY u.id
      ORDER BY u.created_at DESC
      LIMIT ? OFFSET ?`
-  ).all(safeLimit, (safePage - 1) * safeLimit) as AdminUserRecord[];
+  ).all(...parameters, safeLimit, (safePage - 1) * safeLimit) as AdminUserRecord[];
 
   return {
     items: users,
@@ -765,8 +787,9 @@ export function getAdminFileOverview(query?: string, limit = 100): AdminFileReco
   const values = text ? [`%${text}%`, `%${text}%`, Math.min(Math.max(limit, 1), 500)] : [Math.min(Math.max(limit, 1), 500)];
   return db.prepare(
     `SELECT f.token, f.original_name, f.size, f.mime_type, u.email AS owner_email,
-            g.token AS group_token, f.expires_at, f.download_count, f.max_downloads,
-            f.revoked_at, f.content_encryption, f.created_at
+            g.token AS group_token, g.revoked_at AS group_revoked_at, f.expires_at, f.download_count, f.max_downloads,
+            f.revoked_at, f.content_encryption, f.telegram_deleted_at,
+            f.deletion_attempts, f.last_deletion_error, f.created_at
      FROM files f
      LEFT JOIN users u ON u.id = f.owner_user_id
      LEFT JOIN file_groups g ON g.id = f.group_id
@@ -775,22 +798,37 @@ export function getAdminFileOverview(query?: string, limit = 100): AdminFileReco
   ).all(...values) as AdminFileRecord[];
 }
 
-export function getAdminFileOverviewPage(query?: string, page = 1, limit = 20): AdminPagination<AdminFileRecord> {
+export function getAdminFileOverviewPage(
+  query?: string,
+  page = 1,
+  limit = 20,
+  status?: "active" | "revoked" | "expired"
+): AdminPagination<AdminFileRecord> {
   const text = query?.trim().toLowerCase();
   const safePage = Math.max(1, Math.floor(page));
   const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100);
-  const where = text ? "WHERE lower(f.original_name) LIKE ? OR lower(COALESCE(u.email, '')) LIKE ?" : "";
-  const searchValues = text ? [`%${text}%`, `%${text}%`] : [];
+  const conditions: string[] = [];
+  const searchValues: string[] = [];
+  if (text) {
+    conditions.push("(lower(f.original_name) LIKE ? OR lower(COALESCE(u.email, '')) LIKE ?)");
+    searchValues.push(`%${text}%`, `%${text}%`);
+  }
+  if (status === "active") conditions.push("f.revoked_at IS NULL AND g.revoked_at IS NULL AND (f.expires_at IS NULL OR julianday(f.expires_at) > julianday('now'))");
+  if (status === "revoked") conditions.push("(f.revoked_at IS NOT NULL OR g.revoked_at IS NOT NULL)");
+  if (status === "expired") conditions.push("f.revoked_at IS NULL AND g.revoked_at IS NULL AND f.expires_at IS NOT NULL AND julianday(f.expires_at) <= julianday('now')");
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const total = (db.prepare(
     `SELECT COUNT(*) AS count
      FROM files f
      LEFT JOIN users u ON u.id = f.owner_user_id
+     LEFT JOIN file_groups g ON g.id = f.group_id
      ${where}`
   ).get(...searchValues) as { count: number }).count;
   const files = db.prepare(
     `SELECT f.token, f.original_name, f.size, f.mime_type, u.email AS owner_email,
-            g.token AS group_token, f.expires_at, f.download_count, f.max_downloads,
-            f.revoked_at, f.content_encryption, f.created_at
+            g.token AS group_token, g.revoked_at AS group_revoked_at, f.expires_at, f.download_count, f.max_downloads,
+            f.revoked_at, f.content_encryption, f.telegram_deleted_at,
+            f.deletion_attempts, f.last_deletion_error, f.created_at
      FROM files f
      LEFT JOIN users u ON u.id = f.owner_user_id
      LEFT JOIN file_groups g ON g.id = f.group_id
@@ -806,6 +844,37 @@ export function getAdminFileOverviewPage(query?: string, page = 1, limit = 20): 
     limit: safeLimit,
     totalPages: Math.max(1, Math.ceil(total / safeLimit)),
   };
+}
+
+export function setAdminFileRevoked(token: string, revoked: boolean): boolean {
+  const value = revoked ? new Date().toISOString() : null;
+  return db.prepare("UPDATE files SET revoked_at = ? WHERE token = ?").run(value, token).changes === 1;
+}
+
+export function deleteAdminFileRecords(token: string): FileWithAccount[] | undefined {
+  const file = getFileByToken(token);
+  if (!file) return undefined;
+
+  db.transaction(() => {
+    db.prepare("DELETE FROM short_links WHERE target_token = ?").run(file.token);
+    db.prepare("DELETE FROM transfer_recipients WHERE target_token = ?").run(file.token);
+    db.prepare("DELETE FROM files WHERE id = ?").run(file.id);
+    db.prepare("UPDATE storage_accounts SET files_count = MAX(files_count - 1, 0) WHERE id = ?").run(file.storage_account_id);
+
+    if (file.group_id !== null) {
+      const remaining = db.prepare("SELECT 1 FROM files WHERE group_id = ? LIMIT 1").get(file.group_id);
+      if (!remaining) {
+        const group = getFileGroupById(file.group_id);
+        if (group) {
+          db.prepare("DELETE FROM short_links WHERE target_token = ?").run(group.token);
+          db.prepare("DELETE FROM transfer_recipients WHERE target_token = ?").run(group.token);
+        }
+        db.prepare("DELETE FROM file_groups WHERE id = ?").run(file.group_id);
+      }
+    }
+  })();
+
+  return [file];
 }
 
 export function createAdminAuditEvent(data: { adminUserId: number; action: string; targetType: string; targetId?: string | null; metadata?: unknown }): void {

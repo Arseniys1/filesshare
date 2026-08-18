@@ -93,4 +93,16 @@ describe("file management roadmap database", () => {
     expect(filesPageTwo.items).toHaveLength(1);
     expect(filesPageOne.items[0].token).not.toBe(filesPageTwo.items[0].token);
   });
+
+  it("filters admin records and manages individual files", () => {
+    expect(db.getAdminUsersPage(1, 20, "roadmap-one", "active").items.map((user) => user.email)).toContain("roadmap-one@example.com");
+    expect(db.getAdminUsersPage(1, 20, "does-not-exist").total).toBe(0);
+    expect(db.getAdminFileOverviewPage("two.txt", 1, 20, "active").items.map((file) => file.token)).toContain("RoadmapFile02");
+
+    expect(db.setAdminFileRevoked("RoadmapFile02", true)).toBe(true);
+    expect(db.getFileByToken("RoadmapFile02")?.revoked_at).not.toBeNull();
+    expect(db.setAdminFileRevoked("RoadmapFile02", false)).toBe(true);
+    expect(db.deleteAdminFileRecords("RoadmapFile02")?.[0].original_name).toBe("two.txt");
+    expect(db.getFileByToken("RoadmapFile02")).toBeUndefined();
+  });
 });

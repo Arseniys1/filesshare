@@ -30,6 +30,8 @@ test.describe("админ-панель", () => {
     let accountActive = true;
     let accountDeleted = false;
     let userRole: "user" | "admin" = "user";
+    let fileRevoked = false;
+    let fileDeleted = false;
 
     await page.route("**/api/admin/accounts**", async (route) => {
       const request = route.request();
@@ -91,9 +93,20 @@ test.describe("админ-панель", () => {
         totalPages: 1,
       });
     });
-    await page.route("**/api/admin/files**", (route) =>
-      fulfillJson(route, {
-        files: [{
+    await page.route("**/api/admin/files**", async (route) => {
+      const request = route.request();
+      if (request.method() === "PATCH") {
+        fileRevoked = request.postDataJSON().action === "revoke";
+        await fulfillJson(route, { success: true, revoked: fileRevoked });
+        return;
+      }
+      if (request.method() === "DELETE") {
+        fileDeleted = true;
+        await fulfillJson(route, { success: true });
+        return;
+      }
+      await fulfillJson(route, {
+        files: fileDeleted ? [] : [{
           token: "file-token",
           original_name: "report.pdf",
           size: 2048,
@@ -103,16 +116,16 @@ test.describe("админ-панель", () => {
           expires_at: null,
           download_count: 3,
           max_downloads: null,
-          revoked_at: null,
+          revoked_at: fileRevoked ? "2026-08-18T11:00:00.000Z" : null,
           content_encryption: "none",
           created_at: "2026-08-18T10:00:00.000Z",
         }],
         page: 1,
         limit: 20,
-        total: 1,
+        total: fileDeleted ? 0 : 1,
         totalPages: 1,
-      })
-    );
+      });
+    });
     await page.route("**/api/admin/audit**", (route) =>
       fulfillJson(route, {
         events: [{
@@ -148,6 +161,15 @@ test.describe("админ-панель", () => {
     await roleSelect.click();
     await page.getByRole("option", { name: "Администратор" }).click();
     await expect(page.getByText("Настройки пользователя обновлены")).toBeVisible();
+
+    await page.getByRole("button", { name: "Отозвать", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Восстановить", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Восстановить", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Отозвать", exact: true })).toBeVisible();
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Удалить файл", exact: true }).click();
+    await expect(page.getByText("Файлы не найдены")).toBeVisible();
 
     page.on("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Удалить", exact: true }).click();

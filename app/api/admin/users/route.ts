@@ -24,7 +24,9 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
   const page = parsePaginationValue(request.nextUrl.searchParams.get("page"), 1);
   const limit = parsePaginationValue(request.nextUrl.searchParams.get("limit"), 20);
-  const result = getAdminUsersPage(page, limit);
+  const statusValue = request.nextUrl.searchParams.get("status");
+  const status = statusValue === "active" || statusValue === "blocked" ? statusValue : undefined;
+  const result = getAdminUsersPage(page, limit, request.nextUrl.searchParams.get("q") || undefined, status);
   return NextResponse.json({ users: result.items, ...result });
 }
 

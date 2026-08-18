@@ -7,7 +7,6 @@ import {
   createSessionRoot,
   parseSessionChecksum,
   parseSessionMaxDownloads,
-  parseSessionMaxRecipients,
   sessionCookieName,
   sessionExpiresAt,
   UPLOAD_CHUNK_SIZE,
@@ -58,7 +57,6 @@ export async function POST(request: NextRequest) {
       throw new Error("Некорректный размер E2EE-потока");
     }
     if (typeof body.password === "string" && body.password.length > 1024) throw new Error("Пароль слишком длинный");
-    if (typeof body.pin === "string" && body.pin && (body.pin.length < 4 || body.pin.length > 32)) throw new Error("PIN-код должен содержать от 4 до 32 символов");
     const expiry = validateSessionExpiry(body.expiry || "never");
     const groupToken = typeof body.groupToken === "string" && body.groupToken ? body.groupToken : null;
     validateSessionGroup(request, groupToken);
@@ -71,7 +69,6 @@ export async function POST(request: NextRequest) {
     const passwordHash = typeof body.password === "string" && body.password ? await hashPassword(body.password) : null;
     const checksum = parseSessionChecksum(body.checksum);
     const maxDownloads = parseSessionMaxDownloads(body.maxDownloads);
-    const maxRecipients = parseSessionMaxRecipients(body.maxRecipients);
     uploadRoot = await createSessionRoot();
     const id = crypto.randomBytes(24).toString("base64url");
     const anonymousToken = user ? null : crypto.randomBytes(32).toString("base64url");
@@ -90,11 +87,8 @@ export async function POST(request: NextRequest) {
       expiry,
       expires_at: sessionExpiresAt(expiry),
       max_downloads: maxDownloads,
-      max_recipients: maxRecipients,
       password_hash: passwordHash,
       group_token: groupToken,
-      pin_hash: typeof body.pin === "string" && body.pin ? await hashPassword(body.pin) : null,
-      one_time: body.oneTime === true || body.oneTime === "true" ? 1 : 0,
       upload_root: uploadRoot,
     });
     const response = NextResponse.json({

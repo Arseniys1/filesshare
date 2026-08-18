@@ -56,14 +56,6 @@ export function parseSessionMaxDownloads(value: unknown): number | null {
   return parsed;
 }
 
-export function parseSessionMaxRecipients(value: unknown): number | null {
-  if (value === undefined || value === null || value === "") return null;
-  if (!/^\d+$/.test(String(value))) throw new Error("Лимит получателей должен быть целым числом");
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 1_000_000) throw new Error("Лимит получателей должен быть от 1 до 1 000 000");
-  return parsed;
-}
-
 export function validateSessionGroup(request: NextRequest, groupToken: string | null): void {
   if (!groupToken) return;
   const group = getFileGroupByToken(groupToken);

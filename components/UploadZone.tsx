@@ -59,10 +59,7 @@ export default function UploadZone({
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [expiry, setExpiry] = useState("never");
   const [password, setPassword] = useState("");
-  const [pin, setPin] = useState("");
   const [maxDownloads, setMaxDownloads] = useState("");
-  const [maxRecipients, setMaxRecipients] = useState("");
-  const [oneTime, setOneTime] = useState(false);
   const [linkMode, setLinkMode] = useState<LinkMode>("group");
   const [endToEndEncryption, setEndToEndEncryption] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
@@ -115,16 +112,13 @@ export default function UploadZone({
       body: JSON.stringify({
         expiry,
         ...(password ? { password } : {}),
-        ...(pin ? { pin } : {}),
-        ...(oneTime ? { oneTime } : {}),
         ...(maxDownloads ? { maxDownloads } : {}),
-        ...(maxRecipients ? { maxRecipients } : {}),
       }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Не удалось создать группу файлов");
     return data.group;
-  }, [expiry, maxDownloads, maxRecipients, oneTime, password, pin]);
+  }, [expiry, maxDownloads, password]);
 
   const uploadSingle = useCallback(async (file: File, groupToken?: string): Promise<UploadedFile> => {
     if (endToEndEncryption) {
@@ -132,10 +126,7 @@ export default function UploadZone({
         expiry,
         ...uploadProgressOptions(),
         ...(password ? { password } : {}),
-        ...(pin ? { pin } : {}),
-        oneTime,
         ...(maxDownloads ? { maxDownloads } : {}),
-        ...(maxRecipients ? { maxRecipients } : {}),
         ...(groupToken ? { groupToken } : {}),
       });
       return {
@@ -151,10 +142,7 @@ export default function UploadZone({
         ...uploadProgressOptions(),
         ...(groupToken ? { groupToken } : {}),
         ...(password ? { password } : {}),
-        ...(pin ? { pin } : {}),
-        ...(oneTime ? { oneTime } : {}),
         ...(maxDownloads ? { maxDownloads } : {}),
-        ...(maxRecipients ? { maxRecipients } : {}),
       }) as UploadedFile;
     }
 
@@ -163,10 +151,7 @@ export default function UploadZone({
     formData.append("expiry", expiry);
     if (groupToken) formData.append("groupToken", groupToken);
     if (password) formData.append("password", password);
-    if (pin) formData.append("pin", pin);
-    if (oneTime) formData.append("oneTime", "true");
     if (maxDownloads) formData.append("maxDownloads", maxDownloads);
-    if (maxRecipients) formData.append("maxRecipients", maxRecipients);
 
     const response = await fetch("/api/upload", {
       method: "POST",
@@ -178,7 +163,7 @@ export default function UploadZone({
       throw new Error(data.error || "Ошибка загрузки");
     }
     return data.file;
-  }, [endToEndEncryption, expiry, maxDownloads, maxRecipients, oneTime, password, pin, uploadProgressOptions]);
+  }, [endToEndEncryption, expiry, maxDownloads, password, uploadProgressOptions]);
 
   const uploadFiles = useCallback(
     async (files: File[]) => {
@@ -537,34 +522,7 @@ export default function UploadZone({
               className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600 disabled:opacity-50"
             />
           </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-1.5">Лимит получателей</label>
-            <input
-              type="number"
-              value={maxRecipients}
-              onChange={(e) => setMaxRecipients(e.target.value)}
-              placeholder="Без ограничения"
-              min="1"
-              disabled={uploading}
-              className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600 disabled:opacity-50"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-1.5">PIN-код</label>
-            <input
-              type="password"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              placeholder="Необязательно"
-              disabled={uploading}
-              className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600 disabled:opacity-50"
-            />
-          </div>
         </div>
-        <label className="flex items-center gap-3 text-sm text-gray-400 cursor-pointer">
-          <input type="checkbox" checked={oneTime} onChange={(e) => setOneTime(e.target.checked)} disabled={uploading} className="h-4 w-4 accent-accent" />
-          Одноразовая ссылка — доступ только для одного скачивания
-        </label>
         <div>
           <span className="block text-sm text-gray-400 mb-1.5">Ссылки на файлы</span>
           <div

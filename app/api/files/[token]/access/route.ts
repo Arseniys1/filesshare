@@ -45,15 +45,13 @@ export async function POST(
       return NextResponse.json({ error: "Срок действия ссылки истёк" }, { status: 410 });
     }
     const passwordHash = group?.password_hash ?? file?.password_hash ?? null;
-    const pinHash = group?.pin_hash ?? file?.pin_hash ?? null;
-    if (!passwordHash && !pinHash) {
+    if (!passwordHash) {
       return NextResponse.json({ error: "Для файла не требуется пароль" }, { status: 400 });
     }
 
-    const body = (await request.json()) as { password?: unknown; pin?: unknown };
+    const body = (await request.json()) as { password?: unknown };
     const password = typeof body.password === "string" ? body.password : "";
-    const pin = typeof body.pin === "string" ? body.pin : "";
-    if ((!password && !pin) || password.length > 1024 || pin.length > 64) {
+    if (!password || password.length > 1024) {
       return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
     }
     const rateKey = accessRateKey(request, token);
@@ -62,9 +60,8 @@ export async function POST(
       return NextResponse.json({ error: "Слишком много попыток. Попробуйте позже." }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
     }
 
-    const passwordVerification = passwordHash && password ? await verifyPassword(password, passwordHash) : { valid: false, needsRehash: false };
-    const pinVerification = pinHash && pin ? await verifyPassword(pin, pinHash) : { valid: false, needsRehash: false };
-    if (!passwordVerification.valid && !pinVerification.valid) {
+    const passwordVerification = await verifyPassword(password, passwordHash);
+    if (!passwordVerification.valid) {
       return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
     }
     clearAccessAttempts(rateKey);

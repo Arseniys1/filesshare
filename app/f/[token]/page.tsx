@@ -25,9 +25,6 @@ interface SharedFile extends SharedFileInfo {
   downloadCount: number;
   maxDownloads: number | null;
   hasPassword: boolean;
-  hasPin: boolean;
-  oneTime: boolean;
-  used: boolean;
   createdAt: string;
   expired: boolean;
   revoked: boolean;
@@ -45,9 +42,6 @@ interface SharedGroup {
   downloadCount: number;
   maxDownloads: number | null;
   hasPassword: boolean;
-  hasPin: boolean;
-  oneTime: boolean;
-  used: boolean;
   createdAt: string;
   expired: boolean;
   revoked: boolean;
@@ -73,7 +67,6 @@ export default function SharePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
-  const [pin, setPin] = useState("");
   const [downloading, setDownloading] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(false);
 
@@ -100,12 +93,12 @@ export default function SharePage() {
   }, [token]);
 
   const authorizeAccess = async (): Promise<boolean> => {
-    if (!file?.hasPassword && !file?.hasPin) return true;
+    if (!file?.hasPassword) return true;
 
     const res = await fetch(`/api/files/${encodeURIComponent(file.token)}/access`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, pin }),
+      body: JSON.stringify({ password }),
     });
     if (res.ok) return true;
 
@@ -239,7 +232,7 @@ export default function SharePage() {
 
   if (!file) return null;
 
-  const unavailable = file.expired || file.revoked || file.downloadsExceeded || file.used;
+  const unavailable = file.expired || file.revoked || file.downloadsExceeded;
   const isGroup = file.kind === "group";
   const e2eeFiles = isGroup
     ? file.files.filter((item) => item.contentEncryption === "e2ee-v1").length
@@ -289,18 +282,6 @@ export default function SharePage() {
               <span>🔒 Пароль</span>
             </div>
           )}
-          {file.hasPin && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Доступ</span>
-              <span>🔢 PIN-код</span>
-            </div>
-          )}
-          {file.oneTime && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Режим</span>
-              <span>Одноразовая ссылка</span>
-            </div>
-          )}
           {e2eeFiles > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">Шифрование</span>
@@ -320,8 +301,6 @@ export default function SharePage() {
             <p className="text-red-400 font-medium">
               {file.revoked
                 ? "Ссылка отозвана"
-                : file.used
-                ? "Одноразовая ссылка уже использована"
                 : file.expired
                 ? "Срок действия ссылки истёк"
                 : "Достигнут лимит скачиваний"}
@@ -338,16 +317,6 @@ export default function SharePage() {
                 className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600"
               />
             )}
-            {file.hasPin && (
-              <input
-                type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="Введите PIN-код"
-                className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600"
-              />
-            )}
-
             {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
             {isGroup ? (

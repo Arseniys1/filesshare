@@ -941,16 +941,13 @@ export function createFileGroup(data: {
   expiresAt: string | null;
   maxDownloads: number | null;
   passwordHash: string | null;
-  pinHash?: string | null;
-  oneTime?: boolean;
-  maxRecipients?: number | null;
 }): FileGroupRecord {
   const result = db
     .prepare(
-      `INSERT INTO file_groups (token, owner_user_id, expires_at, max_downloads, password_hash, pin_hash, one_time, max_recipients)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO file_groups (token, owner_user_id, expires_at, max_downloads, password_hash)
+       VALUES (?, ?, ?, ?, ?)`
     )
-    .run(data.token, data.ownerUserId ?? null, data.expiresAt, data.maxDownloads, data.passwordHash, data.pinHash ?? null, data.oneTime ? 1 : 0, data.maxRecipients ?? null);
+    .run(data.token, data.ownerUserId ?? null, data.expiresAt, data.maxDownloads, data.passwordHash);
   return db
     .prepare("SELECT * FROM file_groups WHERE id = ?")
     .get(result.lastInsertRowid) as FileGroupRecord;
@@ -1007,9 +1004,6 @@ export function createFileRecord(data: {
   contentEncryption?: ContentEncryption;
   groupId?: number | null;
   ownerUserId?: number | null;
-  pinHash?: string | null;
-  oneTime?: boolean;
-  maxRecipients?: number | null;
 }): FileRecord {
   const create = db.transaction(() => {
     const result = db
@@ -1017,8 +1011,8 @@ export function createFileRecord(data: {
         `INSERT INTO files (
           token, original_name, mime_type, size, content_size, storage_account_id,
           telegram_file_id, telegram_message_id, owner_user_id, expires_at, max_downloads, password_hash,
-          storage_encryption, storage_key_wrap, content_encryption, group_id, pin_hash, one_time, max_recipients
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          storage_encryption, storage_key_wrap, content_encryption, group_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         data.token,
@@ -1037,9 +1031,6 @@ export function createFileRecord(data: {
         data.storageKeyWrap ?? null,
         data.contentEncryption ?? "none",
         data.groupId ?? null,
-        data.pinHash ?? null,
-        data.oneTime ? 1 : 0,
-        data.maxRecipients ?? null
       );
 
     incrementAccountFileCount(data.storageAccountId);
@@ -1090,15 +1081,10 @@ function transferCte(): string {
         g.download_count AS download_count,
         g.max_downloads AS max_downloads,
         CASE WHEN g.password_hash IS NULL THEN 0 ELSE 1 END AS has_password,
-        CASE WHEN g.pin_hash IS NULL THEN 0 ELSE 1 END AS has_pin,
         CASE WHEN SUM(CASE WHEN f.storage_encryption = 'server-v1' THEN 1 ELSE 0 END) = COUNT(f.id) THEN 1 ELSE 0 END AS storage_encrypted,
         CASE WHEN SUM(CASE WHEN f.content_encryption = 'e2ee-v1' THEN 1 ELSE 0 END) = COUNT(f.id) THEN 'e2ee-v1' ELSE 'none' END AS content_encryption,
         g.created_at AS created_at,
-        g.revoked_at AS revoked_at,
-        g.one_time AS one_time,
-        g.used_at AS used_at,
-        g.max_recipients AS max_recipients,
-        g.recipient_count AS recipient_count
+        g.revoked_at AS revoked_at
       FROM file_groups g
       JOIN files f ON f.group_id = g.id
       GROUP BY g.id
@@ -1114,15 +1100,10 @@ function transferCte(): string {
         f.download_count AS download_count,
         f.max_downloads AS max_downloads,
         CASE WHEN f.password_hash IS NULL THEN 0 ELSE 1 END AS has_password,
-        CASE WHEN f.pin_hash IS NULL THEN 0 ELSE 1 END AS has_pin,
         CASE WHEN f.storage_encryption = 'server-v1' THEN 1 ELSE 0 END AS storage_encrypted,
         f.content_encryption AS content_encryption,
         f.created_at AS created_at,
-        f.revoked_at AS revoked_at,
-        f.one_time AS one_time,
-        f.used_at AS used_at,
-        f.max_recipients AS max_recipients,
-        f.recipient_count AS recipient_count
+        f.revoked_at AS revoked_at
       FROM files f
       WHERE f.group_id IS NULL
     )
@@ -1155,7 +1136,7 @@ export function getOwnedTransfers(
     conditions.push("revoked_at IS NULL AND expires_at IS NOT NULL AND julianday(expires_at) <= julianday('now')");
   }
   if (options.status === "active") {
-    conditions.push("revoked_at IS NULL AND (expires_at IS NULL OR julianday(expires_at) > julianday('now')) AND (one_time = 0 OR used_at IS NULL)");
+    conditions.push("revoked_at IS NULL AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))");
   }
   if (options.status === "password") conditions.push("has_password = 1");
   if (options.status === "e2ee") conditions.push("content_encryption = 'e2ee-v1'");
@@ -1194,8 +1175,6 @@ export function updateOwnedTransfer(
     expiresAt?: string | null;
     maxDownloads?: number | null;
     passwordHash?: string | null;
-    pinHash?: string | null;
-    maxRecipients?: number | null;
   }
 ): boolean {
   const details = getOwnedTransferDetails(userId, token);
@@ -1207,8 +1186,6 @@ export function updateOwnedTransfer(
       if (data.expiresAt !== undefined) { updates.push("expires_at = ?"); values.push(data.expiresAt); }
       if (data.maxDownloads !== undefined) { updates.push("max_downloads = ?"); values.push(data.maxDownloads); }
       if (data.passwordHash !== undefined) { updates.push("password_hash = ?"); values.push(data.passwordHash); }
-      if (data.pinHash !== undefined) { updates.push("pin_hash = ?"); values.push(data.pinHash); }
-      if (data.maxRecipients !== undefined) { updates.push("max_recipients = ?"); values.push(data.maxRecipients); }
       if (updates.length) {
         db.prepare(`UPDATE file_groups SET ${updates.join(", ")} WHERE id = ?`).run(...values, details.group!.id);
         const childUpdates: string[] = [];
@@ -1216,8 +1193,6 @@ export function updateOwnedTransfer(
         if (data.expiresAt !== undefined) { childUpdates.push("expires_at = ?"); childValues.push(data.expiresAt); }
         if (data.maxDownloads !== undefined) { childUpdates.push("max_downloads = ?"); childValues.push(data.maxDownloads); }
         if (data.passwordHash !== undefined) { childUpdates.push("password_hash = ?"); childValues.push(data.passwordHash); }
-        if (data.pinHash !== undefined) { childUpdates.push("pin_hash = ?"); childValues.push(data.pinHash); }
-        if (data.maxRecipients !== undefined) { childUpdates.push("max_recipients = ?"); childValues.push(data.maxRecipients); }
         if (childUpdates.length) db.prepare(`UPDATE files SET ${childUpdates.join(", ")} WHERE group_id = ?`).run(...childValues, details.group!.id);
       }
     } else {
@@ -1226,8 +1201,6 @@ export function updateOwnedTransfer(
       if (data.expiresAt !== undefined) { updates.push("expires_at = ?"); values.push(data.expiresAt); }
       if (data.maxDownloads !== undefined) { updates.push("max_downloads = ?"); values.push(data.maxDownloads); }
       if (data.passwordHash !== undefined) { updates.push("password_hash = ?"); values.push(data.passwordHash); }
-      if (data.pinHash !== undefined) { updates.push("pin_hash = ?"); values.push(data.pinHash); }
-      if (data.maxRecipients !== undefined) { updates.push("max_recipients = ?"); values.push(data.maxRecipients); }
       if (updates.length) db.prepare(`UPDATE files SET ${updates.join(", ")} WHERE id = ?`).run(...values, details.file!.id);
     }
   })();
@@ -1370,19 +1343,19 @@ export function markNotificationFailed(id: number, error: string): void {
   ).run(error.slice(0, 1000), Date.now() + 5 * 60 * 1000, id);
 }
 
-export function createUploadSession(data: Omit<UploadSessionRecord, "created_at" | "updated_at" | "completed_at" | "result_json" | "status"> & { status?: UploadSessionRecord["status"] }): UploadSessionRecord {
+export function createUploadSession(data: Omit<UploadSessionRecord, "created_at" | "updated_at" | "completed_at" | "result_json" | "status" | "pin_hash" | "one_time" | "max_recipients"> & { status?: UploadSessionRecord["status"] }): UploadSessionRecord {
   const now = Date.now();
   db.prepare(
     `INSERT INTO upload_sessions
      (id, owner_user_id, anonymous_token, file_name, mime_type, total_size, chunk_size, total_chunks,
      checksum, content_encryption, original_size, expiry, expires_at, max_downloads, password_hash,
-      group_token, pin_hash, one_time, max_recipients, status, upload_root, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      group_token, status, upload_root, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     data.id, data.owner_user_id, data.anonymous_token, data.file_name, data.mime_type,
     data.total_size, data.chunk_size, data.total_chunks, data.checksum, data.content_encryption,
     data.original_size, data.expiry, data.expires_at, data.max_downloads, data.password_hash,
-    data.group_token, data.pin_hash, data.one_time, data.max_recipients, data.status ?? "active", data.upload_root, now, now
+    data.group_token, data.status ?? "active", data.upload_root, now, now
   );
   return getUploadSession(data.id)!;
 }
@@ -1446,66 +1419,38 @@ export function getActiveUploadSessionCount(userId: number): number {
   ).get(userId) as { count: number }).count;
 }
 
-export function reserveGroupDownload(token: string, recipientHash: string | null = null): boolean {
-  return db.transaction(() => {
-    const group = db.prepare("SELECT max_recipients FROM file_groups WHERE token = ?").get(token) as { max_recipients: number | null } | undefined;
-    if (!group) return false;
-    const isNewRecipient = Boolean(recipientHash && !db.prepare("SELECT 1 FROM transfer_recipients WHERE target_token = ? AND recipient_hash = ?").get(token, recipientHash));
-    if (isNewRecipient && group.max_recipients !== null) {
-      const count = (db.prepare("SELECT COUNT(*) AS count FROM transfer_recipients WHERE target_token = ?").get(token) as { count: number }).count;
-      if (count >= group.max_recipients) return false;
-    }
-    const updated = db.prepare(
-      `UPDATE file_groups
-       SET download_count = download_count + 1,
-           used_at = CASE WHEN one_time = 1 THEN datetime('now') ELSE used_at END,
-           recipient_count = CASE WHEN ? = 1 THEN recipient_count + 1 ELSE recipient_count END
-       WHERE token = ?
-         AND revoked_at IS NULL
-         AND (max_downloads IS NULL OR download_count < max_downloads)
-         AND (one_time = 0 OR used_at IS NULL)`
-    ).run(isNewRecipient ? 1 : 0, token).changes === 1;
-    if (updated && isNewRecipient && recipientHash) db.prepare("INSERT INTO transfer_recipients (target_token, recipient_hash) VALUES (?, ?)").run(token, recipientHash);
-    return updated;
-  })();
+export function reserveGroupDownload(token: string): boolean {
+  return db.prepare(
+    `UPDATE file_groups
+     SET download_count = download_count + 1
+     WHERE token = ?
+       AND revoked_at IS NULL
+       AND (max_downloads IS NULL OR download_count < max_downloads)`
+  ).run(token).changes === 1;
 }
 
 export function releaseGroupDownload(token: string): void {
   db
     .prepare(
-      "UPDATE file_groups SET download_count = MAX(download_count - 1, 0), used_at = CASE WHEN one_time = 1 THEN NULL ELSE used_at END WHERE token = ?"
+      "UPDATE file_groups SET download_count = MAX(download_count - 1, 0) WHERE token = ?"
     )
     .run(token);
 }
 
 /** Atomically reserves one download slot. Call releaseDownloadReservation on upstream failure. */
-export function reserveDownload(token: string, recipientHash: string | null = null): boolean {
-  return db.transaction(() => {
-    const file = db.prepare("SELECT max_recipients FROM files WHERE token = ?").get(token) as { max_recipients: number | null } | undefined;
-    if (!file) return false;
-    const isNewRecipient = Boolean(recipientHash && !db.prepare("SELECT 1 FROM transfer_recipients WHERE target_token = ? AND recipient_hash = ?").get(token, recipientHash));
-    if (isNewRecipient && file.max_recipients !== null) {
-      const count = (db.prepare("SELECT COUNT(*) AS count FROM transfer_recipients WHERE target_token = ?").get(token) as { count: number }).count;
-      if (count >= file.max_recipients) return false;
-    }
-    const updated = db.prepare(
-      `UPDATE files
-       SET download_count = download_count + 1,
-           used_at = CASE WHEN one_time = 1 THEN datetime('now') ELSE used_at END,
-           recipient_count = CASE WHEN ? = 1 THEN recipient_count + 1 ELSE recipient_count END
-       WHERE token = ?
-         AND revoked_at IS NULL
-         AND (max_downloads IS NULL OR download_count < max_downloads)
-         AND (one_time = 0 OR used_at IS NULL)`
-    ).run(isNewRecipient ? 1 : 0, token).changes === 1;
-    if (updated && isNewRecipient && recipientHash) db.prepare("INSERT INTO transfer_recipients (target_token, recipient_hash) VALUES (?, ?)").run(token, recipientHash);
-    return updated;
-  })();
+export function reserveDownload(token: string): boolean {
+  return db.prepare(
+    `UPDATE files
+     SET download_count = download_count + 1
+     WHERE token = ?
+       AND revoked_at IS NULL
+       AND (max_downloads IS NULL OR download_count < max_downloads)`
+  ).run(token).changes === 1;
 }
 
 export function releaseDownloadReservation(token: string): void {
   db.prepare(
-    "UPDATE files SET download_count = MAX(download_count - 1, 0), used_at = CASE WHEN one_time = 1 THEN NULL ELSE used_at END WHERE token = ?"
+    "UPDATE files SET download_count = MAX(download_count - 1, 0) WHERE token = ?"
   ).run(token);
 }
 

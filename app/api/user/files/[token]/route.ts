@@ -30,14 +30,6 @@ function parseMaxDownloads(value: unknown): number | null | undefined {
   return parsed;
 }
 
-function parseMaxRecipients(value: unknown): number | null | undefined {
-  if (value === undefined) return undefined;
-  if (value === null || value === "") return null;
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 1_000_000) throw new Error("Некорректный лимит получателей");
-  return parsed;
-}
-
 function parseExpiresAt(body: Record<string, unknown>): string | null | undefined {
   if (body.expiry !== undefined) {
     if (typeof body.expiry !== "string") throw new Error("Некорректный срок действия");
@@ -76,11 +68,7 @@ export async function GET(
       expiresAt: details.group.expires_at,
       downloadCount: details.group.download_count,
       maxDownloads: details.group.max_downloads,
-      maxRecipients: details.group.max_recipients,
-      recipientCount: details.group.recipient_count,
       hasPassword: Boolean(details.group.password_hash),
-      hasPin: Boolean(details.group.pin_hash),
-      oneTime: Boolean(details.group.one_time),
       revoked: Boolean(details.group.revoked_at),
       createdAt: details.group.created_at,
     } : null,
@@ -92,11 +80,7 @@ export async function GET(
       expiresAt: details.file.expires_at,
       downloadCount: details.file.download_count,
       maxDownloads: details.file.max_downloads,
-      maxRecipients: details.file.max_recipients,
-      recipientCount: details.file.recipient_count,
       hasPassword: Boolean(details.file.password_hash),
-      hasPin: Boolean(details.file.pin_hash),
-      oneTime: Boolean(details.file.one_time),
       revoked: Boolean(details.file.revoked_at),
       createdAt: details.file.created_at,
       storageEncrypted: details.file.storage_encryption === "server-v1",
@@ -128,7 +112,6 @@ export async function PATCH(
     const body = await getBody(request);
     const expiresAt = parseExpiresAt(body);
     const maxDownloads = parseMaxDownloads(body.maxDownloads);
-    const maxRecipients = parseMaxRecipients(body.maxRecipients);
     const userRecord = getUserById(user.id);
     if (maxDownloads !== undefined && maxDownloads !== null && userRecord?.max_downloads && maxDownloads > userRecord.max_downloads) {
       return NextResponse.json({ error: "Лимит скачиваний превышает ограничение пользователя" }, { status: 400 });
@@ -136,28 +119,19 @@ export async function PATCH(
     if (maxDownloads !== undefined && maxDownloads !== null && maxDownloads < (details.group?.download_count ?? details.file?.download_count ?? 0)) {
       return NextResponse.json({ error: "Новый лимит меньше уже использованных скачиваний" }, { status: 400 });
     }
-    if (maxRecipients !== undefined && maxRecipients !== null && maxRecipients < (details.group?.recipient_count ?? details.file?.recipient_count ?? 0)) {
-      return NextResponse.json({ error: "Новый лимит меньше уже использованных получателей" }, { status: 400 });
-    }
     let passwordHash: string | null | undefined;
-    let pinHash: string | null | undefined;
     if (body.password !== undefined) {
       if (body.password !== null && typeof body.password !== "string") throw new Error("Некорректный пароль");
       if (typeof body.password === "string" && body.password.length > 1024) throw new Error("Пароль слишком длинный");
       passwordHash = body.password ? await hashPassword(body.password) : null;
     }
-    if (body.pin !== undefined) {
-      if (body.pin !== null && typeof body.pin !== "string") throw new Error("Некорректный PIN-код");
-      if (typeof body.pin === "string" && (body.pin.length < 4 || body.pin.length > 32)) throw new Error("PIN-код должен содержать от 4 до 32 символов");
-      pinHash = body.pin ? await hashPassword(body.pin) : null;
-    }
     if (expiresAt !== undefined && expiresAt !== null && isExpired(expiresAt)) {
       return NextResponse.json({ error: "Дата окончания уже прошла" }, { status: 400 });
     }
-    if (expiresAt === undefined && maxDownloads === undefined && maxRecipients === undefined && passwordHash === undefined && pinHash === undefined) {
+    if (expiresAt === undefined && maxDownloads === undefined && passwordHash === undefined) {
       return NextResponse.json({ error: "Нет изменений" }, { status: 400 });
     }
-    updateOwnedTransfer(user.id, token, { expiresAt, maxDownloads, maxRecipients, passwordHash, pinHash });
+    updateOwnedTransfer(user.id, token, { expiresAt, maxDownloads, passwordHash });
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка обновления" }, { status: 400 });

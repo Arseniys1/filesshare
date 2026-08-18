@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
       canRecreateLink: item.content_encryption !== "e2ee-v1",
       expired: item.expires_at !== null && new Date(item.expires_at) <= new Date(),
       revoked: item.revoked_at !== null,
-      used: item.one_time === 1 && item.used_at !== null,
     })),
     total: result.total,
     page: Math.max(Number.isFinite(page) ? page : 1, 1),

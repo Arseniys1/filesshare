@@ -27,7 +27,7 @@ describe("file management roadmap database", () => {
     expect(db.getOwnedTransferDetails(second.id, group.token)).toBeUndefined();
   });
 
-  it("supports revoke, one-time reservation and download events", () => {
+  it("supports revoke, reusable download reservations and download events", () => {
     const owner = db.getUserByEmail("roadmap-one@example.com")!;
     const file = db.getFileByToken("RoadmapFile01")!;
     const group = db.getFileGroupByToken("RoadmapGroup01")!;
@@ -35,13 +35,13 @@ describe("file management roadmap database", () => {
     expect(db.reserveGroupDownload(group.token)).toBe(false);
     expect(db.setOwnedTransferRevoked(owner.id, group.token, false)).toBe(true);
 
-    const oneTime = db.createFileRecord({ token: "RoadmapOneTime", originalName: "once.txt", mimeType: "text/plain", size: 1, storageAccountId: file.storage_account_id, telegramFileId: "once", telegramMessageId: 3, expiresAt: null, maxDownloads: null, passwordHash: null, ownerUserId: owner.id, oneTime: true, maxRecipients: 1 });
-    expect(db.reserveDownload(oneTime.token, "recipient-a")).toBe(true);
-    expect(db.reserveDownload(oneTime.token)).toBe(false);
-    db.releaseDownloadReservation(oneTime.token);
-    expect(db.reserveDownload(oneTime.token, "recipient-a")).toBe(true);
+    const reusable = db.createFileRecord({ token: "RoadmapReusable", originalName: "reusable.txt", mimeType: "text/plain", size: 1, storageAccountId: file.storage_account_id, telegramFileId: "reusable", telegramMessageId: 3, expiresAt: null, maxDownloads: null, passwordHash: null, ownerUserId: owner.id });
+    db.default.prepare("UPDATE files SET pin_hash = ?, one_time = 1, used_at = ?, max_recipients = 1 WHERE token = ?").run("legacy-pin", new Date().toISOString(), reusable.token);
+    expect(db.reserveDownload(reusable.token)).toBe(true);
+    db.releaseDownloadReservation(reusable.token);
+    expect(db.reserveDownload(reusable.token)).toBe(true);
 
-    db.createDownloadEvent({ fileId: oneTime.id, groupId: null, outcome: "started", ipHash: "hashed-ip", userAgent: "test-agent", isGroupDownload: false });
+    db.createDownloadEvent({ fileId: reusable.id, groupId: null, outcome: "started", ipHash: "hashed-ip", userAgent: "test-agent", isGroupDownload: false });
     expect(db.getUserDownloadStats(owner.id).total).toBe(1);
   });
 
@@ -64,9 +64,6 @@ describe("file management roadmap database", () => {
       max_downloads: null,
       password_hash: null,
       group_token: null,
-      pin_hash: null,
-      one_time: 0,
-      max_recipients: null,
       upload_root: dataDir,
     });
     db.upsertUploadSessionPart({ session_id: session.id, part_index: 0, size: 4, checksum: "a".repeat(64), path: join(dataDir, "part"), created_at: Date.now() });

@@ -17,10 +17,7 @@ interface Transfer {
   expires_at: string | null;
   download_count: number;
   max_downloads: number | null;
-  max_recipients: number | null;
-  recipient_count: number;
   has_password: number;
-  has_pin: number;
   storage_encrypted: number;
   content_encryption: "none" | "e2ee-v1";
   created_at: string;
@@ -29,7 +26,6 @@ interface Transfer {
   canRecreateLink: boolean;
   expired: boolean;
   revoked: boolean;
-  used: boolean;
 }
 
 interface Stats {
@@ -56,7 +52,6 @@ interface EditState {
 
 function statusLabel(item: Transfer): string {
   if (item.revoked) return "Отозвана";
-  if (item.used) return "Использована";
   if (item.expired) return "Истекла";
   return "Активна";
 }
@@ -284,12 +279,10 @@ export default function DashboardPage() {
                   <p className="font-medium truncate" title={item.name}>{item.name}</p>
                   <p className="text-sm text-gray-400 mt-1">{formatFileSize(item.size)} · {item.file_count} {item.file_count === 1 ? "файл" : "файлов"} · {formatDate(item.created_at)}</p>
                   <div className="flex flex-wrap gap-2 mt-2 text-xs">
-                    <span className={`rounded-full px-2 py-1 ${item.revoked || item.used ? "bg-red-500/15 text-red-400" : item.expired ? "bg-yellow-500/15 text-yellow-400" : "bg-green-500/15 text-green-400"}`}>{statusLabel(item)}</span>
+                    <span className={`rounded-full px-2 py-1 ${item.revoked ? "bg-red-500/15 text-red-400" : item.expired ? "bg-yellow-500/15 text-yellow-400" : "bg-green-500/15 text-green-400"}`}>{statusLabel(item)}</span>
                     {item.has_password === 1 && <span className="rounded-full px-2 py-1 bg-white/5 text-gray-400">🔒 Пароль</span>}
-                    {item.has_pin === 1 && <span className="rounded-full px-2 py-1 bg-white/5 text-gray-400">🔢 PIN</span>}
                     {item.content_encryption === "e2ee-v1" && <span className="rounded-full px-2 py-1 bg-accent/15 text-accent-light">🔐 E2EE</span>}
                     <span className="rounded-full px-2 py-1 bg-white/5 text-gray-400">Скачано: {item.download_count}{item.max_downloads ? ` / ${item.max_downloads}` : ""}</span>
-                    {item.max_recipients && <span className="rounded-full px-2 py-1 bg-white/5 text-gray-400">Получатели: {item.recipient_count} / {item.max_recipients}</span>}
                   </div>
                 </div>
                 <div className="flex flex-wrap justify-end gap-2">

@@ -12,10 +12,7 @@ const SESSION_KEY_PREFIX = "filesshare-upload-session:";
 export interface ResumableUploadOptions {
   expiry: string;
   password?: string;
-  pin?: string;
-  oneTime?: boolean;
   maxDownloads?: string;
-  maxRecipients?: string;
   groupToken?: string;
   waitForResume?: () => Promise<void>;
   onProgress?: (uploadedBytes: number, totalBytes: number, uploadedParts?: number, totalParts?: number) => void;
@@ -65,10 +62,7 @@ async function createSession(
       totalSize: file.size,
       expiry: options.expiry,
       ...(options.password ? { password: options.password } : {}),
-      ...(options.pin ? { pin: options.pin } : {}),
-      ...(options.oneTime ? { oneTime: true } : {}),
       ...(options.maxDownloads ? { maxDownloads: options.maxDownloads } : {}),
-      ...(options.maxRecipients ? { maxRecipients: options.maxRecipients } : {}),
       ...(options.groupToken ? { groupToken: options.groupToken } : {}),
       ...extra,
     }),

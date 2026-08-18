@@ -43,10 +43,7 @@ interface ParsedUpload {
   filePath: string;
   expiry: string;
   password: string | null;
-  pin: string | null;
-  oneTime: boolean;
   maxDownloads: number | null;
-  maxRecipients: number | null;
   contentEncryption: ContentEncryption;
   groupToken: string | null;
 }
@@ -110,7 +107,7 @@ async function parseMultipartUpload(
     };
 
     parser.on("field", (name, value) => {
-      if (["expiry", "password", "pin", "oneTime", "maxDownloads", "maxRecipients", "contentEncryption", "originalSize", "groupToken"].includes(name)) {
+      if (["expiry", "password", "maxDownloads", "contentEncryption", "originalSize", "groupToken"].includes(name)) {
         fields[name] = value.slice(0, 2048);
       }
     });
@@ -186,9 +183,6 @@ async function parseMultipartUpload(
         if (fields.password && fields.password.length > 1024) {
           throw new UploadValidationError("Пароль слишком длинный");
         }
-        if (fields.pin && (fields.pin.length < 4 || fields.pin.length > 32)) {
-          throw new UploadValidationError("PIN-код должен содержать от 4 до 32 символов");
-        }
         if (!settled) {
           settled = true;
           resolve();
@@ -208,21 +202,10 @@ async function parseMultipartUpload(
     filePath: filePath!,
     expiry: fields.expiry || "never",
     password: fields.password || null,
-    pin: fields.pin || null,
-    oneTime: fields.oneTime === "true" || fields.oneTime === "1",
     maxDownloads: parseMaxDownloads(fields.maxDownloads),
-    maxRecipients: parseMaxRecipients(fields.maxRecipients),
     contentEncryption: (fields.contentEncryption || "none") as ContentEncryption,
     groupToken: fields.groupToken || null,
   };
-}
-
-function parseMaxRecipients(value: string | undefined): number | null {
-  if (!value) return null;
-  if (!/^\d+$/.test(value)) throw new UploadValidationError("Лимит получателей должен быть целым числом");
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 1_000_000) throw new UploadValidationError("Лимит получателей должен быть от 1 до 1 000 000");
-  return parsed;
 }
 
 export async function POST(request: NextRequest) {
@@ -273,10 +256,7 @@ export async function POST(request: NextRequest) {
       contentSize: upload.contentSize,
       expiry: upload.expiry,
       password: upload.password,
-      pin: upload.pin,
-      oneTime: upload.oneTime,
       maxDownloads: upload.maxDownloads,
-      maxRecipients: upload.maxRecipients,
       contentEncryption: upload.contentEncryption,
       groupToken: upload.groupToken,
       ownerUserId: user?.id ?? null,

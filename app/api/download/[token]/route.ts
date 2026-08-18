@@ -14,7 +14,6 @@ import {
 import {
   getDownloadGrantCookieName,
   isSafeFileToken,
-  RECIPIENT_COOKIE_NAME,
   verifyDownloadGrant,
 } from "@/lib/download-grant";
 import { decryptedStreamToWeb } from "@/lib/file-encryption";
@@ -32,11 +31,6 @@ function hashClientIp(request: NextRequest): string | null {
     .createHash("sha256")
     .update(`${process.env.DOWNLOAD_GRANT_SECRET || "filesshare"}:${ip}`)
     .digest("hex");
-}
-
-function recipientHash(request: NextRequest, token: string): string {
-  const value = request.cookies.get(RECIPIENT_COOKIE_NAME)?.value || hashClientIp(request) || request.headers.get("user-agent") || "direct";
-  return crypto.createHash("sha256").update(`${process.env.DOWNLOAD_GRANT_SECRET || "filesshare"}:recipient:${token}:${value}`).digest("hex");
 }
 
 function contentDisposition(fileName: string): string {
@@ -95,7 +89,7 @@ export async function GET(
       return NextResponse.json({ error: "Срок действия ссылки истёк" }, { status: 410 });
     }
 
-    if (group ? (group.password_hash || group.pin_hash) : (file.password_hash || file.pin_hash)) {
+    if (group ? group.password_hash : file.password_hash) {
       const grantToken = group?.token ?? token;
       const grant = request.cookies.get(getDownloadGrantCookieName(grantToken))?.value;
       if (!verifyDownloadGrant(grantToken, grant)) {
@@ -106,8 +100,7 @@ export async function GET(
       }
     }
 
-    const recipient = recipientHash(request, group?.token ?? token);
-    if (group ? !reserveGroupDownload(group.token, recipient) : !reserveDownload(token, recipient)) {
+    if (group ? !reserveGroupDownload(group.token) : !reserveDownload(token)) {
       return NextResponse.json({ error: "Достигнут лимит скачиваний" }, { status: 410 });
     }
     reserved = true;

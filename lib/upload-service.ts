@@ -16,11 +16,7 @@ export interface PersistUploadInput {
   expiresAt?: string | null;
   password: string | null;
   passwordHash?: string | null;
-  pin?: string | null;
-  pinHash?: string | null;
-  oneTime?: boolean;
   maxDownloads: number | null;
-  maxRecipients: number | null;
   contentEncryption: ContentEncryption;
   groupToken: string | null;
   ownerUserId: number | null;
@@ -79,9 +75,6 @@ export async function persistUploadedFile(input: PersistUploadInput) {
     expiresAt,
     maxDownloads: effectiveMaxDownloads,
     passwordHash: group ? group.password_hash : input.passwordHash !== undefined ? input.passwordHash : input.password ? await hashPassword(input.password) : null,
-    pinHash: group ? group.pin_hash : input.pinHash !== undefined ? input.pinHash : input.pin ? await hashPassword(input.pin) : null,
-    oneTime: group ? Boolean(group.one_time) : Boolean(input.oneTime),
-    maxRecipients: group ? group.max_recipients : input.maxRecipients,
     storageEncryption: encryptedFile.storageEncryption,
     storageKeyWrap: encryptedFile.storageKeyWrap,
     contentEncryption: input.contentEncryption,

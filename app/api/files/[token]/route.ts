@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "node:crypto";
 import { getFileByToken, getFileGroupById, getFileGroupByToken, getFilesByGroupId } from "@/lib/db";
-import { RECIPIENT_COOKIE_NAME } from "@/lib/download-grant";
 import { isExpired } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -32,9 +30,6 @@ export async function GET(
         downloadCount: group.download_count,
         maxDownloads: group.max_downloads,
         hasPassword: !!group.password_hash,
-        hasPin: !!group.pin_hash,
-        oneTime: Boolean(group.one_time),
-        used: Boolean(group.used_at),
         createdAt: group.created_at,
         expired,
         revoked,
@@ -49,7 +44,6 @@ export async function GET(
           contentEncryption: file.content_encryption,
         })),
       });
-      setRecipientCookie(request, response);
       return response;
     }
 
@@ -75,9 +69,6 @@ export async function GET(
       downloadCount: file.download_count,
       maxDownloads: file.max_downloads,
       hasPassword: !!file.password_hash,
-      hasPin: !!file.pin_hash,
-      oneTime: Boolean(file.one_time),
-      used: Boolean(file.used_at),
       storageEncrypted: file.storage_encryption === "server-v1",
       contentEncryption: file.content_encryption,
       createdAt: file.created_at,
@@ -86,7 +77,6 @@ export async function GET(
       downloadsExceeded,
       available: !expired && !revoked && !downloadsExceeded,
     });
-    setRecipientCookie(request, response);
     return response;
   } catch (err) {
     console.error("File info error:", err);
@@ -95,17 +85,4 @@ export async function GET(
       { status: 500 }
     );
   }
-}
-
-function setRecipientCookie(request: NextRequest, response: NextResponse): void {
-  if (request.cookies.get(RECIPIENT_COOKIE_NAME)) return;
-  response.cookies.set({
-    name: RECIPIENT_COOKIE_NAME,
-    value: crypto.randomBytes(24).toString("base64url"),
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 365 * 24 * 60 * 60,
-  });
 }

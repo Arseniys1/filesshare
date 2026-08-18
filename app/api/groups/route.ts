@@ -17,13 +17,6 @@ function parseMaxDownloads(value: unknown): number | null {
   return parsed;
 }
 
-function parseMaxRecipients(value: unknown): number | null {
-  if (value === undefined || value === null || value === "") return null;
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 1_000_000) throw new Error("Лимит получателей должен быть от 1 до 1 000 000");
-  return parsed;
-}
-
 export async function POST(request: NextRequest) {
   try {
     const sessionStatus = getCurrentUserStatus(request);
@@ -32,10 +25,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       expiry?: unknown;
       password?: unknown;
-      pin?: unknown;
       maxDownloads?: unknown;
-      oneTime?: unknown;
-      maxRecipients?: unknown;
     };
     const expiry = typeof body.expiry === "string" ? body.expiry : "never";
     if (!EXPIRY_OPTIONS.some((option) => option.value === expiry)) {
@@ -45,13 +35,7 @@ export async function POST(request: NextRequest) {
     if (typeof password !== "string" || password.length > 1024) {
       return NextResponse.json({ error: "Пароль слишком длинный" }, { status: 400 });
     }
-    const pin = body.pin === undefined ? "" : body.pin;
-    if (typeof pin !== "string" || (pin && (pin.length < 4 || pin.length > 32))) {
-      return NextResponse.json({ error: "PIN-код должен содержать от 4 до 32 символов" }, { status: 400 });
-    }
-
     const requestedMaxDownloads = parseMaxDownloads(body.maxDownloads);
-    const maxRecipients = parseMaxRecipients(body.maxRecipients);
     if (user) {
       const userRecord = getUserById(user.id);
       if (userRecord?.blocked_at) return NextResponse.json({ error: "Пользователь заблокирован" }, { status: 403 });
@@ -68,9 +52,6 @@ export async function POST(request: NextRequest) {
       expiresAt: computeExpiresAt(expiry),
       maxDownloads: requestedMaxDownloads ?? (user ? getUserById(user.id)?.max_downloads ?? null : null),
       passwordHash: password ? await hashPassword(password) : null,
-      pinHash: pin ? await hashPassword(pin) : null,
-      oneTime: body.oneTime === true || body.oneTime === "true",
-      maxRecipients,
     });
 
     return NextResponse.json({
@@ -81,8 +62,6 @@ export async function POST(request: NextRequest) {
         expiresAt: group.expires_at,
         maxDownloads: group.max_downloads,
         hasPassword: !!group.password_hash,
-        hasPin: !!group.pin_hash,
-        oneTime: Boolean(group.one_time),
       },
     });
   } catch (error) {

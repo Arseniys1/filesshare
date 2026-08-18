@@ -6,6 +6,7 @@ import {
   deleteShortLink,
   enqueueNotification,
   getOwnedTransferDetails,
+  getShortLinkByTargetToken,
   getUserById,
   getUserNotificationSettings,
   markFileDeletionFailed,
@@ -151,9 +152,19 @@ export async function POST(
       const shortLinkDetails = getOwnedTransferDetails(user.id, token);
       if (!shortLinkDetails) return NextResponse.json({ error: "Передача не найдена" }, { status: 404 });
       if (shortLinkDetails.files.some((file) => file.content_encryption === "e2ee-v1")) return NextResponse.json({ error: "Для E2EE-файла короткая ссылка без ключа невозможна" }, { status: 400 });
-      const code = nanoid(8);
-      createShortLink({ code, targetToken: token, ownerUserId: user.id });
-      return NextResponse.json({ success: true, shortUrl: `${request.nextUrl.origin}/s/${code}` });
+      let shortLink = getShortLinkByTargetToken(token);
+      if (!shortLink) {
+        const code = nanoid(8);
+        try {
+          createShortLink({ code, targetToken: token, ownerUserId: user.id });
+          shortLink = { code, target_token: token, owner_user_id: user.id };
+        } catch (error) {
+          // Another request may have created the link between the lookup and insert.
+          shortLink = getShortLinkByTargetToken(token);
+          if (!shortLink) throw error;
+        }
+      }
+      return NextResponse.json({ success: true, shortUrl: `${request.nextUrl.origin}/s/${shortLink.code}` });
     } catch {
       return NextResponse.json({ error: "Не удалось создать короткую ссылку" }, { status: 500 });
     }

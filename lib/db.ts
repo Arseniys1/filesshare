@@ -532,6 +532,14 @@ export interface AdminFileRecord {
   created_at: string;
 }
 
+export interface AdminPagination<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface AdminAuditEventRecord {
   id: number;
   admin_user_id: number;
@@ -726,6 +734,31 @@ export function getAllUsers(): AdminUserRecord[] {
   ).all() as AdminUserRecord[];
 }
 
+export function getAdminUsersPage(page = 1, limit = 20): AdminPagination<AdminUserRecord> {
+  const safePage = Math.max(1, Math.floor(page));
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100);
+  const total = (db.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number }).count;
+  const users = db.prepare(
+    `SELECT u.id, u.email, u.role, u.blocked_at, u.max_file_size, u.storage_limit,
+            u.active_link_limit, u.max_downloads, u.max_parallel_uploads, u.created_at,
+            COUNT(DISTINCT f.id) AS files_count,
+            COALESCE(SUM(f.size), 0) AS storage_used
+     FROM users u
+     LEFT JOIN files f ON f.owner_user_id = u.id
+     GROUP BY u.id
+     ORDER BY u.created_at DESC
+     LIMIT ? OFFSET ?`
+  ).all(safeLimit, (safePage - 1) * safeLimit) as AdminUserRecord[];
+
+  return {
+    items: users,
+    total,
+    page: safePage,
+    limit: safeLimit,
+    totalPages: Math.max(1, Math.ceil(total / safeLimit)),
+  };
+}
+
 export function getAdminFileOverview(query?: string, limit = 100): AdminFileRecord[] {
   const text = query?.trim().toLowerCase();
   const where = text ? "WHERE lower(f.original_name) LIKE ? OR lower(COALESCE(u.email, '')) LIKE ?" : "";
@@ -740,6 +773,39 @@ export function getAdminFileOverview(query?: string, limit = 100): AdminFileReco
      ${where}
      ORDER BY f.created_at DESC LIMIT ?`
   ).all(...values) as AdminFileRecord[];
+}
+
+export function getAdminFileOverviewPage(query?: string, page = 1, limit = 20): AdminPagination<AdminFileRecord> {
+  const text = query?.trim().toLowerCase();
+  const safePage = Math.max(1, Math.floor(page));
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100);
+  const where = text ? "WHERE lower(f.original_name) LIKE ? OR lower(COALESCE(u.email, '')) LIKE ?" : "";
+  const searchValues = text ? [`%${text}%`, `%${text}%`] : [];
+  const total = (db.prepare(
+    `SELECT COUNT(*) AS count
+     FROM files f
+     LEFT JOIN users u ON u.id = f.owner_user_id
+     ${where}`
+  ).get(...searchValues) as { count: number }).count;
+  const files = db.prepare(
+    `SELECT f.token, f.original_name, f.size, f.mime_type, u.email AS owner_email,
+            g.token AS group_token, f.expires_at, f.download_count, f.max_downloads,
+            f.revoked_at, f.content_encryption, f.created_at
+     FROM files f
+     LEFT JOIN users u ON u.id = f.owner_user_id
+     LEFT JOIN file_groups g ON g.id = f.group_id
+     ${where}
+     ORDER BY f.created_at DESC
+     LIMIT ? OFFSET ?`
+  ).all(...searchValues, safeLimit, (safePage - 1) * safeLimit) as AdminFileRecord[];
+
+  return {
+    items: files,
+    total,
+    page: safePage,
+    limit: safeLimit,
+    totalPages: Math.max(1, Math.ceil(total / safeLimit)),
+  };
 }
 
 export function createAdminAuditEvent(data: { adminUserId: number; action: string; targetType: string; targetId?: string | null; metadata?: unknown }): void {
@@ -1059,8 +1125,18 @@ export function createShortLink(data: { code: string; targetToken: string; owner
   ).run(data.code, data.targetToken, data.ownerUserId);
 }
 
-export function getShortLink(code: string): { code: string; target_token: string; owner_user_id: number | null } | undefined {
+export interface ShortLinkRecord {
+  code: string;
+  target_token: string;
+  owner_user_id: number | null;
+}
+
+export function getShortLink(code: string): ShortLinkRecord | undefined {
   return db.prepare("SELECT * FROM short_links WHERE code = ?").get(code) as { code: string; target_token: string; owner_user_id: number | null } | undefined;
+}
+
+export function getShortLinkByTargetToken(targetToken: string): ShortLinkRecord | undefined {
+  return db.prepare("SELECT * FROM short_links WHERE target_token = ?").get(targetToken) as ShortLinkRecord | undefined;
 }
 
 export function deleteShortLink(targetToken: string): void {
@@ -1489,45 +1565,6 @@ export function getRecentFiles(limit = 20): FileRecord[] {
   return db
     .prepare("SELECT * FROM files ORDER BY created_at DESC LIMIT ?")
     .all(limit) as FileRecord[];
-}
-
-export function getLegacyStorageFiles(limit = 10): FileWithAccount[] {
-  return db
-    .prepare(
-      `SELECT f.*, s.bot_token, s.channel_id, s.name as account_name
-       FROM files f
-       JOIN storage_accounts s ON f.storage_account_id = s.id
-       WHERE f.storage_encryption = 'none'
-       ORDER BY f.created_at ASC
-       LIMIT ?`
-    )
-    .all(limit) as FileWithAccount[];
-}
-
-export function countLegacyStorageFiles(): number {
-  return (db
-    .prepare("SELECT COUNT(*) as count FROM files WHERE storage_encryption = 'none'")
-    .get() as { count: number }).count;
-}
-
-export function updateFileStorageEncryption(data: {
-  token: string;
-  telegramFileId: string;
-  telegramMessageId: number;
-  storageKeyWrap: string;
-}): boolean {
-  return (
-    db
-      .prepare(
-        `UPDATE files
-         SET telegram_file_id = ?,
-             telegram_message_id = ?,
-             storage_encryption = 'server-v1',
-             storage_key_wrap = ?
-         WHERE token = ? AND storage_encryption = 'none'`
-      )
-      .run(data.telegramFileId, data.telegramMessageId, data.storageKeyWrap, data.token).changes === 1
-  );
 }
 
 export function getExpiredFilesForCleanup(limit = 100): FileWithAccount[] {

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   addE2EEKeysToShareUrl,
   addE2EEKeyToShareUrl,
 } from "@/lib/e2ee-client";
 import { uploadE2EEFileResumable, uploadFileResumable } from "@/lib/resumable-upload-client";
 import { EXPIRY_OPTIONS, formatFileSize } from "@/lib/utils";
+import ThemedSelect from "@/components/ThemedSelect";
 
 interface UploadedFile {
   token: string;
@@ -64,7 +65,6 @@ export default function UploadZone({
   const [endToEndEncryption, setEndToEndEncryption] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const expiryMenuRef = useRef<HTMLDetailsElement>(null);
   const pausedRef = useRef(false);
   const resumeResolversRef = useRef<Array<() => void>>([]);
   const progressStartedRef = useRef<{ uploaded: number; at: number } | null>(null);
@@ -94,16 +94,6 @@ export default function UploadZone({
     waitForResume,
     onProgress: setTransferProgressFromUpload,
   }), [setTransferProgressFromUpload, waitForResume]);
-
-  useEffect(() => {
-    const handlePointerDown = (event: PointerEvent) => {
-      const menu = expiryMenuRef.current;
-      if (menu?.open && !menu.contains(event.target as Node)) menu.open = false;
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, []);
 
   const createGroup = useCallback(async (): Promise<FileGroupUpload> => {
     const response = await fetch("/api/groups", {
@@ -430,70 +420,14 @@ export default function UploadZone({
             <label className="block text-sm text-gray-400 mb-1.5">
               Срок действия
             </label>
-            <details ref={expiryMenuRef} className="group relative z-50">
-              <summary
-                role="button"
-                aria-label="Срок действия ссылки"
-                aria-controls="expiry-options"
-                aria-haspopup="listbox"
-                onClick={(event) => {
-                  if (uploading) event.preventDefault();
-                }}
-                className="flex w-full cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-white/10 bg-surface-overlay px-4 py-2.5 text-left text-sm transition-all hover:border-accent/35 hover:bg-accent/[0.03] focus:outline-none focus:ring-4 focus:ring-accent/15 group-open:border-accent/60 group-open:bg-accent/[0.06] [&::-webkit-details-marker]:hidden"
-              >
-                <span>{EXPIRY_OPTIONS.find((option) => option.value === expiry)?.label}</span>
-                <svg
-                  className="h-4 w-4 flex-shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180 group-open:text-accent-light"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </summary>
-              <div
-                id="expiry-options"
-                role="listbox"
-                aria-label="Срок действия ссылки"
-                className="absolute left-0 top-full z-40 mt-2 w-60 max-w-[calc(100vw-2rem)] min-w-full overflow-hidden rounded-2xl border border-white/10 bg-surface-overlay p-2 shadow-2xl shadow-black/20 backdrop-blur-xl animate-fade-in"
-              >
-                <div className="space-y-1">
-                  {EXPIRY_OPTIONS.map((option) => {
-                    const selected = expiry === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        role="option"
-                        aria-selected={selected}
-                        onClick={() => {
-                          setExpiry(option.value);
-                          if (expiryMenuRef.current) expiryMenuRef.current.open = false;
-                        }}
-                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
-                          selected
-                            ? "bg-accent/15 text-accent-light"
-                            : "text-gray-400 hover:bg-white/5 hover:text-gray-300"
-                        }`}
-                      >
-                        <span className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${selected ? "bg-accent/15" : "bg-white/5"}`}>
-                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
-                            <path d="M12 7.5V12l3 2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </span>
-                        <span className="flex-1">{option.label}</span>
-                        {selected && (
-                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </details>
+            <ThemedSelect
+              value={expiry}
+              options={[...EXPIRY_OPTIONS]}
+              onChange={setExpiry}
+              disabled={uploading}
+              className="w-full"
+              ariaLabel="Срок действия ссылки"
+            />
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">

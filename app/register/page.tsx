@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import GuestOnly from "@/components/GuestOnly";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -31,7 +32,8 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 py-24 animate-fade-in">
+    <GuestOnly>
+      <div className="max-w-md mx-auto px-4 py-24 animate-fade-in">
       <div className="glass rounded-2xl p-8 gradient-border">
         <h1 className="text-2xl font-bold text-center mb-2">Регистрация</h1>
         <p className="text-gray-400 text-sm text-center mb-8">
@@ -101,6 +103,7 @@ export default function RegisterPage() {
           </Link>
         </p>
       </div>
-    </div>
+      </div>
+    </GuestOnly>
   );
 }

@@ -71,4 +71,26 @@ describe("file management roadmap database", () => {
     expect(db.getActiveUploadSessionCount(owner.id)).toBe(1);
     expect(db.updateUserNotificationSettings(owner.id, { email_enabled: 0, expiry_warning_days: 7 })).toMatchObject({ email_enabled: 0, expiry_warning_days: 7 });
   });
+
+  it("finds an existing short link by its transfer", () => {
+    const owner = db.getUserByEmail("roadmap-one@example.com")!;
+    db.createShortLink({ code: "roadmap-short", targetToken: "RoadmapGroup01", ownerUserId: owner.id });
+    expect(db.getShortLinkByTargetToken("RoadmapGroup01")).toMatchObject({ code: "roadmap-short", owner_user_id: owner.id });
+  });
+
+  it("paginates admin users and files", () => {
+    const usersPageOne = db.getAdminUsersPage(1, 1);
+    const usersPageTwo = db.getAdminUsersPage(2, 1);
+    expect(usersPageOne.total).toBeGreaterThanOrEqual(2);
+    expect(usersPageOne.items).toHaveLength(1);
+    expect(usersPageTwo.items).toHaveLength(1);
+    expect(usersPageOne.items[0].id).not.toBe(usersPageTwo.items[0].id);
+
+    const filesPageOne = db.getAdminFileOverviewPage(undefined, 1, 1);
+    const filesPageTwo = db.getAdminFileOverviewPage(undefined, 2, 1);
+    expect(filesPageOne.total).toBeGreaterThanOrEqual(2);
+    expect(filesPageOne.items).toHaveLength(1);
+    expect(filesPageTwo.items).toHaveLength(1);
+    expect(filesPageOne.items[0].token).not.toBe(filesPageTwo.items[0].token);
+  });
 });

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatFileSize } from "@/lib/utils";
+import ThemedSelect from "@/components/ThemedSelect";
 
 interface StorageAccount {
   id: number;
@@ -65,12 +66,60 @@ interface AdminAudit {
   created_at: string;
 }
 
+interface PaginationState {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+const ADMIN_PAGE_SIZE = 20;
+
+function Pagination({
+  pagination,
+  onPageChange,
+}: {
+  pagination: PaginationState;
+  onPageChange: (page: number) => void;
+}) {
+  if (pagination.total <= pagination.limit) return null;
+
+  return (
+    <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-gray-500">
+        Страница {pagination.page} из {pagination.totalPages} · всего {pagination.total}
+      </span>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onPageChange(pagination.page - 1)}
+          disabled={pagination.page <= 1}
+          className="rounded-lg bg-white/5 px-3 py-2 text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          ← Назад
+        </button>
+        <button
+          type="button"
+          onClick={() => onPageChange(pagination.page + 1)}
+          disabled={pagination.page >= pagination.totalPages}
+          className="rounded-lg bg-white/5 px-3 py-2 text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Вперёд →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [accounts, setAccounts] = useState<StorageAccount[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [legacyFiles, setLegacyFiles] = useState<number | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [adminFiles, setAdminFiles] = useState<AdminFile[]>([]);
+  const [usersPagination, setUsersPagination] = useState<PaginationState>({ page: 1, limit: ADMIN_PAGE_SIZE, total: 0, totalPages: 1 });
+  const [filesPagination, setFilesPagination] = useState<PaginationState>({ page: 1, limit: ADMIN_PAGE_SIZE, total: 0, totalPages: 1 });
+  const [usersPage, setUsersPage] = useState(1);
+  const [filesPage, setFilesPage] = useState(1);
   const [auditEvents, setAuditEvents] = useState<AdminAudit[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -80,7 +129,6 @@ export default function AdminPage() {
     channelId: "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const [migratingEncryption, setMigratingEncryption] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [authState, setAuthState] = useState<
@@ -133,25 +181,32 @@ export default function AdminPage() {
       setAccounts(data.accounts);
       setStats(data.stats);
 
-      const usersResponse = await fetch("/api/admin/users");
+      const usersResponse = await fetch(`/api/admin/users?page=${usersPage}&limit=${ADMIN_PAGE_SIZE}`);
       if (usersResponse.ok) {
         const usersData = await usersResponse.json();
         setUsers(usersData.users);
+        setUsersPagination({
+          page: usersData.page,
+          limit: usersData.limit,
+          total: usersData.total,
+          totalPages: usersData.totalPages,
+        });
       }
 
-      const filesResponse = await fetch("/api/admin/files?limit=100");
+      const filesResponse = await fetch(`/api/admin/files?page=${filesPage}&limit=${ADMIN_PAGE_SIZE}`);
       if (filesResponse.ok) {
         const filesData = await filesResponse.json();
         setAdminFiles(filesData.files);
+        setFilesPagination({
+          page: filesData.page,
+          limit: filesData.limit,
+          total: filesData.total,
+          totalPages: filesData.totalPages,
+        });
       }
       const auditResponse = await fetch("/api/admin/audit?limit=50");
       if (auditResponse.ok) setAuditEvents((await auditResponse.json()).events);
 
-      const encryptionResponse = await fetch("/api/admin/encryption");
-      if (encryptionResponse.ok) {
-        const encryptionData = (await encryptionResponse.json()) as { legacyFiles: number };
-        setLegacyFiles(encryptionData.legacyFiles);
-      }
     } catch (err) {
       const msg =
         err instanceof TypeError
@@ -163,7 +218,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [getHeaders]);
+  }, [filesPage, getHeaders, usersPage]);
 
   useEffect(() => {
     fetchData();
@@ -241,33 +296,6 @@ export default function AdminPage() {
       return;
     }
     fetchData();
-  };
-
-  const encryptLegacyFiles = async () => {
-    if (!legacyFiles || migratingEncryption) return;
-    if (!confirm(`Зашифровать старые файлы партиями? Обработать до 5 файлов сейчас.`)) return;
-
-    setMigratingEncryption(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const res = await fetch("/api/admin/encryption", {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify({ limit: 5 }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Не удалось зашифровать старые файлы");
-
-      setLegacyFiles(data.legacyFiles ?? 0);
-      setSuccess(`Зашифровано файлов: ${data.migrated}. Осталось: ${data.legacyFiles ?? 0}.`);
-      if (data.warnings?.length) setError(data.warnings.join("\n"));
-      fetchData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка миграции шифрования");
-    } finally {
-      setMigratingEncryption(false);
-    }
   };
 
   const updateUser = async (user: AdminUser, data: Record<string, unknown>) => {
@@ -359,27 +387,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {legacyFiles !== null && (
-        <div className="glass rounded-2xl p-5 mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <p className="font-medium">Шифрование хранилища</p>
-            <p className="text-sm text-gray-400 mt-1">
-              {legacyFiles === 0
-                ? "Все файлы хранятся в зашифрованном виде."
-                : `Старых незашифрованных файлов: ${legacyFiles}.`}
-            </p>
-          </div>
-          <button
-            onClick={encryptLegacyFiles}
-            disabled={legacyFiles === 0 || migratingEncryption}
-            className="px-4 py-2.5 rounded-xl bg-accent/20 text-accent-light text-sm font-medium hover:bg-accent/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {migratingEncryption ? "Шифрование..." : "Зашифровать старые файлы"}
-          </button>
-        </div>
-      )}
-
-      {users.length > 0 && (
+      {(users.length > 0 || usersPagination.total > 0) && (
         <div className="glass rounded-2xl p-5 mb-8">
           <h3 className="font-medium mb-4">Пользователи и лимиты</h3>
           <div className="space-y-4">
@@ -391,9 +399,12 @@ export default function AdminPage() {
                     <p className="text-xs text-gray-500 mt-1">{user.files_count} файлов · {formatFileSize(user.storage_used)} · {user.blocked_at ? "заблокирован" : "активен"}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <select value={user.role} onChange={(event) => updateUser(user, { role: event.target.value })} className="bg-surface-overlay border border-white/10 rounded-lg px-2.5 py-2 text-sm">
-                      <option value="user">Пользователь</option><option value="admin">Администратор</option>
-                    </select>
+                    <ThemedSelect
+                      value={user.role}
+                      options={[{ value: "user", label: "Пользователь" }, { value: "admin", label: "Администратор" }]}
+                      onChange={(value) => updateUser(user, { role: value })}
+                      ariaLabel={`Роль пользователя ${user.email}`}
+                    />
                     <button type="button" onClick={() => updateUser(user, { blocked: !user.blocked_at })} className="px-3 py-2 rounded-lg text-sm bg-white/5 hover:bg-white/10">{user.blocked_at ? "Разблокировать" : "Заблокировать"}</button>
                   </div>
                 </div>
@@ -411,10 +422,11 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+          <Pagination pagination={usersPagination} onPageChange={setUsersPage} />
         </div>
       )}
 
-      {adminFiles.length > 0 && (
+      {(adminFiles.length > 0 || filesPagination.total > 0) && (
         <div className="glass rounded-2xl p-5 mb-8">
           <h3 className="font-medium mb-4">Обзор всех файлов</h3>
           <div className="overflow-x-auto">
@@ -423,6 +435,7 @@ export default function AdminPage() {
               <tbody>{adminFiles.map((file) => <tr key={file.token} className="border-t border-white/5"><td className="py-3 pr-4 max-w-[260px] truncate" title={file.original_name}>{file.original_name}{file.content_encryption === "e2ee-v1" && <span className="ml-2 text-xs text-accent-light">E2EE</span>}</td><td className="py-3 pr-4 text-gray-400">{file.owner_email || "Гость"}</td><td className="py-3 pr-4 text-gray-400">{formatFileSize(file.size)}</td><td className="py-3 pr-4 text-gray-400">{file.download_count}{file.max_downloads ? ` / ${file.max_downloads}` : ""}</td><td className="py-3 text-gray-400">{file.revoked_at ? "Отозван" : "Активен"}</td></tr>)}</tbody>
             </table>
           </div>
+          <Pagination pagination={filesPagination} onPageChange={setFilesPage} />
         </div>
       )}
 

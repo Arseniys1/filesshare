@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { EXPIRY_OPTIONS, formatDate, formatFileSize, getFileIcon } from "@/lib/utils";
+import ThemedSelect from "@/components/ThemedSelect";
 
 type Status = "active" | "expired" | "revoked" | "password" | "e2ee" | "";
 
@@ -75,10 +76,13 @@ function EditTransferPanel({ edit, saving, onChange, onSave, onClose }: EditTran
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">Срок действия</label>
-            <select value={edit.expiry} onChange={(event) => onChange({ expiry: event.target.value })} className="w-full rounded-xl border border-white/10 bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors focus:border-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/10">
-            <option value="keep">Не изменять</option>
-            {EXPIRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
+            <ThemedSelect
+              value={edit.expiry}
+              options={[{ value: "keep", label: "Не изменять" }, ...EXPIRY_OPTIONS]}
+              onChange={(value) => onChange({ expiry: value })}
+              className="w-full"
+              ariaLabel="Срок действия"
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">Новый пароль</label>
@@ -288,7 +292,7 @@ export default function DashboardPage() {
       {notifications && (
         <div className="glass rounded-2xl p-5 mb-6">
           <div className="flex items-center justify-between gap-3 mb-4">
-            <div><h2 className="font-semibold">Email-уведомления</h2><p className="text-xs text-gray-500 mt-1">Письма отправляются через очередь и не задерживают загрузку.</p></div>
+            <div><h2 className="font-semibold">Email-уведомления</h2></div>
             {notificationSaving && <span className="text-xs text-gray-500">Сохранение...</span>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
@@ -297,9 +301,13 @@ export default function DashboardPage() {
             <label className="flex items-center gap-2 text-gray-300"><input type="checkbox" checked={notifications.summary_notifications === 1} onChange={(event) => updateNotifications({ summary_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> Сводные уведомления</label>
           </div>
           <label className="flex items-center gap-3 text-sm text-gray-400 mt-4">Предупреждать об окончании за
-            <select value={notifications.expiry_warning_days} onChange={(event) => updateNotifications({ expiry_warning_days: Number(event.target.value) })} disabled={notificationSaving} className="bg-surface-overlay border border-white/10 rounded-lg px-2.5 py-2">
-              <option value={0}>Не предупреждать</option><option value={1}>1 день</option><option value={2}>2 дня</option><option value={3}>3 дня</option><option value={7}>7 дней</option><option value={14}>14 дней</option><option value={30}>30 дней</option>
-            </select>
+            <ThemedSelect
+              value={String(notifications.expiry_warning_days)}
+              options={[{ value: "0", label: "Не предупреждать" }, { value: "1", label: "1 день" }, { value: "2", label: "2 дня" }, { value: "3", label: "3 дня" }, { value: "7", label: "7 дней" }, { value: "14", label: "14 дней" }, { value: "30", label: "30 дней" }]}
+              onChange={(value) => updateNotifications({ expiry_warning_days: Number(value) })}
+              disabled={notificationSaving}
+              ariaLabel="Срок предупреждения об окончании"
+            />
           </label>
         </div>
       )}
@@ -307,12 +315,20 @@ export default function DashboardPage() {
       <div className="glass rounded-2xl p-4 mb-5">
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3">
           <input value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="Поиск по названию" className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50" />
-          <select value={status} onChange={(event) => { setStatus(event.target.value as Status); setPage(1); }} className="bg-surface-overlay border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-accent/50">
-            <option value="">Все статусы</option><option value="active">Активные</option><option value="expired">Истёкшие</option><option value="revoked">Отозванные</option><option value="password">С паролем</option><option value="e2ee">E2EE</option>
-          </select>
-          <select value={sort} onChange={(event) => { setSort(event.target.value); setPage(1); }} className="bg-surface-overlay border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-accent/50">
-            <option value="created">Новые сначала</option><option value="size">По размеру</option><option value="downloads">По скачиваниям</option>
-          </select>
+          <ThemedSelect
+            value={status}
+            options={[{ value: "", label: "Все статусы" }, { value: "active", label: "Активные" }, { value: "expired", label: "Истёкшие" }, { value: "revoked", label: "Отозванные" }, { value: "password", label: "С паролем" }, { value: "e2ee", label: "E2EE" }]}
+            onChange={(value) => { setStatus(value as Status); setPage(1); }}
+            className="w-full"
+            ariaLabel="Фильтр по статусу"
+          />
+          <ThemedSelect
+            value={sort}
+            options={[{ value: "created", label: "Новые сначала" }, { value: "size", label: "По размеру" }, { value: "downloads", label: "По скачиваниям" }]}
+            onChange={(value) => { setSort(value); setPage(1); }}
+            className="w-full"
+            ariaLabel="Сортировка файлов"
+          />
         </div>
       </div>
 

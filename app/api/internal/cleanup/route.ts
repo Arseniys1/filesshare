@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cleanupExpiredFiles, enqueueExpiryWarnings } from "@/lib/cleanup";
 import { processNotificationOutbox } from "@/lib/notifications";
 import { cleanupStaleUploadSessions } from "@/lib/upload-session-service";
+import { purgeTelemetryEvents } from "@/lib/db";
+import { getTelemetryRetentionDays } from "@/lib/telemetry";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
@@ -30,5 +32,6 @@ export async function POST(request: NextRequest) {
   const expiryWarnings = dryRun ? 0 : enqueueExpiryWarnings();
   const notifications = dryRun ? { sent: 0, failed: 0 } : await processNotificationOutbox(50);
   const uploadSessions = dryRun ? 0 : await cleanupStaleUploadSessions();
-  return NextResponse.json({ ...result, expiryWarnings, notifications, uploadSessions }, { headers: { "Cache-Control": "no-store" } });
+  const telemetry = dryRun ? 0 : purgeTelemetryEvents(getTelemetryRetentionDays());
+  return NextResponse.json({ ...result, expiryWarnings, notifications, uploadSessions, telemetry }, { headers: { "Cache-Control": "no-store" } });
 }

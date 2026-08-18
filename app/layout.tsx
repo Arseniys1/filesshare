@@ -3,6 +3,7 @@ import "./globals.css";
 import Link from "next/link";
 import AuthNav from "@/components/AuthNav";
 import ThemeToggle from "@/components/ThemeToggle";
+import PrivacyConsent from "@/components/PrivacyConsent";
 
 const themeScript = `
 (function () {
@@ -54,6 +55,7 @@ export default function RootLayout({
           </header>
           <main className="pt-16">{children}</main>
           <ThemeToggle />
+          <PrivacyConsent />
         </div>
       </body>
     </html>

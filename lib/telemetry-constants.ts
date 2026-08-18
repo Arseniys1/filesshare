@@ -1,0 +1,1 @@
+export const TELEMETRY_CONSENT_VERSION = "2026-08-18";

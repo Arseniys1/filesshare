@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { createFileRecord, enqueueNotification, getActiveStorageAccounts, getFileGroupByToken, getUserById, getUserNotificationSettings, getUserQuotaUsage } from "@/lib/db";
 import { encryptFileToPath, type ContentEncryption } from "@/lib/file-encryption";
@@ -47,17 +48,17 @@ export async function persistUploadedFile(input: PersistUploadInput) {
   const account = accounts[0];
   const token = generateFileToken();
   const expiresAt = group ? group.expires_at : input.expiresAt !== undefined ? input.expiresAt : computeExpiresAt(input.expiry);
-  const encryptedPath = join(input.tempDir, "storage-payload.bin");
+  const storageFileName = randomUUID();
+  const encryptedPath = join(input.tempDir, storageFileName);
   await scanUploadedFile(input.filePath, input.contentEncryption);
   const encryptedFile = await encryptFileToPath(input.filePath, encryptedPath);
   if (encryptedFile.originalSize !== input.contentSize) throw new Error("Размер файла изменился во время шифрования");
 
-  const caption = [
-    "🔐 FileShare storage",
-    `🔗 ${token}`,
-    expiresAt ? `⏰ Expires: ${expiresAt}` : "",
-  ].filter(Boolean).join("\n");
-  const message = await sendDocumentToChannel(account.bot_token, account.channel_id, { fileName: "storage-payload.bin", filePath: encryptedPath }, caption);
+  const message = await sendDocumentToChannel(
+    account.bot_token,
+    account.channel_id,
+    { fileName: storageFileName, filePath: encryptedPath }
+  );
   if (!message.document) throw new Error("Не удалось сохранить файл в хранилище");
 
   const effectiveMaxDownloads = group

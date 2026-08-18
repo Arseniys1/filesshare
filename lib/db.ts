@@ -430,6 +430,64 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    id: "017_privacy_telemetry",
+    apply: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS telemetry_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_name TEXT NOT NULL CHECK (event_name IN ('page_view')),
+          consent_version TEXT NOT NULL,
+          visitor_id TEXT NOT NULL,
+          ip_hash TEXT,
+          ip_hash_day TEXT,
+          browser_family TEXT NOT NULL,
+          os_family TEXT NOT NULL,
+          device_type TEXT NOT NULL,
+          language TEXT,
+          viewport_bucket TEXT,
+          path TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_telemetry_events_created
+          ON telemetry_events(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_telemetry_events_visitor_created
+          ON telemetry_events(visitor_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_telemetry_events_ip_created
+          ON telemetry_events(ip_hash, created_at DESC);
+      `);
+    },
+  },
+  {
+    id: "018_full_fingerprint_result",
+    apply: () => {
+      if (!hasColumn("telemetry_events", "fingerprint_result")) {
+        db.exec("ALTER TABLE telemetry_events ADD COLUMN fingerprint_result TEXT");
+      }
+    },
+  },
+  {
+    id: "019_ua_parser_result",
+    apply: () => {
+      if (!hasColumn("telemetry_events", "ua_parser_result")) {
+        db.exec("ALTER TABLE telemetry_events ADD COLUMN ua_parser_result TEXT");
+      }
+    },
+  },
+  {
+    id: "020_browser_tool_and_ip",
+    apply: () => {
+      if (!hasColumn("telemetry_events", "browser_tool_result")) {
+        db.exec("ALTER TABLE telemetry_events ADD COLUMN browser_tool_result TEXT");
+      }
+      if (!hasColumn("telemetry_events", "client_ip")) {
+        db.exec("ALTER TABLE telemetry_events ADD COLUMN client_ip TEXT");
+      }
+      if (!hasColumn("telemetry_events", "server_ip")) {
+        db.exec("ALTER TABLE telemetry_events ADD COLUMN server_ip TEXT");
+      }
+    },
+  },
 ];
 
 db.exec("BEGIN IMMEDIATE");
@@ -552,6 +610,27 @@ export interface AdminAuditEventRecord {
   target_type: string;
   target_id: string | null;
   metadata: string | null;
+  created_at: string;
+}
+
+export interface TelemetryEventRecord {
+  id: number;
+  event_name: "page_view";
+  consent_version: string;
+  visitor_id: string;
+  fingerprint_result: string | null;
+  ua_parser_result: string | null;
+  browser_tool_result: string | null;
+  client_ip: string | null;
+  server_ip: string | null;
+  ip_hash: string | null;
+  ip_hash_day: string | null;
+  browser_family: string;
+  os_family: string;
+  device_type: string;
+  language: string | null;
+  viewport_bucket: string | null;
+  path: string;
   created_at: string;
 }
 
@@ -890,6 +969,70 @@ export function getAdminAuditEvents(limit = 100): AdminAuditEventRecord[] {
      FROM admin_audit_events a JOIN users u ON u.id = a.admin_user_id
      ORDER BY a.id DESC LIMIT ?`
   ).all(Math.min(Math.max(limit, 1), 500)) as AdminAuditEventRecord[];
+}
+
+export function createTelemetryEvent(data: {
+  eventName: "page_view";
+  consentVersion: string;
+  visitorId: string;
+  fingerprintResult: string;
+  browserToolResult: string;
+  clientIp: string | null;
+  serverIp: string | null;
+  ipHash: string | null;
+  ipHashDay: string | null;
+  browserFamily: string;
+  osFamily: string;
+  deviceType: string;
+  language: string | null;
+  viewportBucket: string | null;
+  path: string;
+}): void {
+  db.prepare(
+    `INSERT INTO telemetry_events (
+      event_name, consent_version, visitor_id, fingerprint_result, browser_tool_result,
+      client_ip, server_ip, ip_hash, ip_hash_day,
+      browser_family, os_family, device_type, language, viewport_bucket, path
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    data.eventName,
+    data.consentVersion,
+    data.visitorId,
+    data.fingerprintResult,
+    data.browserToolResult,
+    data.clientIp,
+    data.serverIp,
+    data.ipHash,
+    data.ipHashDay,
+    data.browserFamily,
+    data.osFamily,
+    data.deviceType,
+    data.language,
+    data.viewportBucket,
+    data.path
+  );
+}
+
+export function countRecentTelemetryEvents(ipHash: string, windowMinutes = 5): number {
+  return (
+    db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM telemetry_events WHERE ip_hash = ? AND created_at >= datetime('now', ?)"
+      )
+      .get(ipHash, `-${Math.min(Math.max(windowMinutes, 1), 60)} minutes`) as { count: number }
+  ).count;
+}
+
+export function getTelemetryEvents(limit = 100): TelemetryEventRecord[] {
+  return db
+    .prepare("SELECT * FROM telemetry_events ORDER BY id DESC LIMIT ?")
+    .all(Math.min(Math.max(limit, 1), 500)) as TelemetryEventRecord[];
+}
+
+export function purgeTelemetryEvents(retentionDays = 30): number {
+  return db
+    .prepare("DELETE FROM telemetry_events WHERE created_at < datetime('now', ?)")
+    .run(`-${Math.min(Math.max(retentionDays, 1), 3650)} days`).changes;
 }
 
 export function updateUserAdminSettings(

@@ -39,8 +39,11 @@ export default function RegisterPage() {
         </p>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1.5">Email</label>
+            <label htmlFor="register-email" className="block text-sm text-gray-400 mb-1.5">
+              Email
+            </label>
             <input
+              id="register-email"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -50,8 +53,11 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1.5">Пароль</label>
+            <label htmlFor="register-password" className="block text-sm text-gray-400 mb-1.5">
+              Пароль
+            </label>
             <input
+              id="register-password"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -62,8 +68,14 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1.5">Повторите пароль</label>
+            <label
+              htmlFor="register-password-confirmation"
+              className="block text-sm text-gray-400 mb-1.5"
+            >
+              Повторите пароль
+            </label>
             <input
+              id="register-password-confirmation"
               type="password"
               value={passwordConfirmation}
               onChange={(event) => setPasswordConfirmation(event.target.value)}

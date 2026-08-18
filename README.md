@@ -97,8 +97,30 @@ npm run dev
 ```bash
 npm run lint
 npm test
+npm run test:e2e
 npm run build
 npm audit --omit=dev
+```
+
+### E2E-тесты Playwright
+
+E2E-тесты находятся в `e2e/` и запускаются отдельным скриптом:
+
+```bash
+npm run test:e2e
+```
+
+При запуске Playwright автоматически поднимает локальный Next.js-сервер на
+`http://127.0.0.1:3000`. Для интерактивного режима используйте:
+
+```bash
+npm run test:e2e:ui
+```
+
+Перед первым запуском установите браузер Chromium:
+
+```bash
+npx playwright install chromium
 ```
 
 ## Лицензия

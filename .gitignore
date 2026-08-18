@@ -24,6 +24,8 @@ certs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+playwright-report/
+test-results/
 
 # IDE
 .idea/

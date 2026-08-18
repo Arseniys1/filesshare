@@ -1,0 +1,172 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface StorageAccount {
+  id: number;
+  name: string;
+  channelId: string;
+  isActive: boolean;
+  filesCount: number;
+  createdAt: string;
+  botToken: string;
+}
+
+export default function AdminBotsPage() {
+  const [accounts, setAccounts] = useState<StorageAccount[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({ name: "", botToken: "", channelId: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [skipConnectionTest, setSkipConnectionTest] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const loadAccounts = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/accounts");
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Не удалось загрузить ботов");
+      setAccounts(data.accounts);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Ошибка загрузки ботов");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadAccounts(); }, []);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch("/api/admin/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, testConnection: !skipConnectionTest }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Ошибка (${response.status})`);
+      setSuccess("Бот успешно добавлен");
+      setFormData({ name: "", botToken: "", channelId: "" });
+      setShowForm(false);
+      await loadAccounts();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Ошибка добавления бота");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleAccount = async (account: StorageAccount) => {
+    setError(null);
+    const response = await fetch("/api/admin/accounts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: account.id, isActive: !account.isActive }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setError(data.error || "Не удалось изменить состояние бота");
+      return;
+    }
+    await loadAccounts();
+  };
+
+  const deleteAccount = async (account: StorageAccount) => {
+    if (account.filesCount > 0) {
+      setError("Нельзя удалить бота с файлами. Отключите его и дождитесь очистки.");
+      return;
+    }
+    if (!confirm("Удалить этот пустой аккаунт?")) return;
+    setError(null);
+    const response = await fetch(`/api/admin/accounts?id=${account.id}`, { method: "DELETE" });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setError(data.error || "Не удалось удалить бота");
+      return;
+    }
+    setSuccess("Бот удалён");
+    await loadAccounts();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold">Telegram-боты</h2>
+          <p className="text-gray-400 mt-1">Управление ботами и каналами хранения файлов</p>
+        </div>
+        <button type="button" onClick={() => setShowForm((current) => !current)} className="self-start px-5 py-2.5 rounded-xl bg-accent/20 text-accent-light font-medium hover:bg-accent/30 transition-colors sm:self-auto">{showForm ? "Отмена" : "+ Добавить бота"}</button>
+      </div>
+
+      {error && <div className="glass rounded-xl p-4 border border-red-500/30 bg-red-500/10"><p className="text-red-400 text-sm">{error}</p></div>}
+      {success && <div className="glass rounded-xl p-4 border border-green-500/30 bg-green-500/10"><p className="text-green-400 text-sm">{success}</p></div>}
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4 animate-slide-up">
+          <h3 className="font-medium">Новый Telegram-бот</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1.5">Название</label>
+              <input value={formData.name} onChange={(event) => setFormData({ ...formData, name: event.target.value })} placeholder="Основной бот" required className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50" />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1.5">ID канала</label>
+              <input value={formData.channelId} onChange={(event) => setFormData({ ...formData, channelId: event.target.value })} placeholder="-1001234567890" required className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1.5">Токен бота</label>
+            <input value={formData.botToken} onChange={(event) => setFormData({ ...formData, botToken: event.target.value })} placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz" required className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 font-mono" />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+            <input type="checkbox" checked={skipConnectionTest} onChange={(event) => setSkipConnectionTest(event.target.checked)} className="rounded border-white/20" />
+            Пропустить проверку подключения к Telegram
+          </label>
+          <button type="submit" disabled={submitting} className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50">{submitting ? "Проверка и добавление..." : "Добавить"}</button>
+        </form>
+      )}
+
+      {loading ? <div className="glass rounded-2xl p-12 text-center text-gray-400">Загрузка ботов...</div> : accounts.length === 0 ? (
+        <div className="glass rounded-2xl p-12 text-center">
+          <div className="text-5xl mb-4">🤖</div>
+          <h3 className="text-xl font-medium mb-2">Нет подключенных ботов</h3>
+          <p className="text-gray-400 text-sm mb-6">Добавьте Telegram-бота для начала работы</p>
+          <button type="button" onClick={() => setShowForm(true)} className="px-6 py-2.5 rounded-xl bg-accent/20 text-accent-light font-medium hover:bg-accent/30">Добавить первого бота</button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {accounts.map((account) => (
+            <div key={account.id} className="glass rounded-xl p-5 flex flex-col gap-4 sm:flex-row sm:items-center glass-hover">
+              <div className={`w-3 h-3 rounded-full flex-shrink-0 ${account.isActive ? "bg-green-400" : "bg-gray-600"}`} />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium">{account.name}</p>
+                <p className="text-sm text-gray-400 break-words">{account.botToken} · Канал: {account.channelId} · {account.filesCount} файлов</p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button type="button" onClick={() => void toggleAccount(account)} className="px-3 py-1.5 rounded-lg text-sm bg-white/5 hover:bg-white/10 transition-colors">{account.isActive ? "Выключить" : "Включить"}</button>
+                <button type="button" onClick={() => void deleteAccount(account)} disabled={account.filesCount > 0} title={account.filesCount > 0 ? "Сначала дождитесь очистки файлов или отключите аккаунт" : undefined} className="px-3 py-1.5 rounded-lg text-sm text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Удалить</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="glass rounded-2xl p-6">
+        <h3 className="font-medium mb-4">Как настроить Telegram-бота</h3>
+        <ol className="space-y-3 text-sm text-gray-400 list-decimal list-inside">
+          <li>Создайте бота через <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-accent-light hover:underline">@BotFather</a> и получите токен</li>
+          <li>Создайте приватный канал в Telegram для хранения файлов</li>
+          <li>Добавьте бота в канал как администратора с правом публикации</li>
+          <li>Узнайте ID канала (начинается с -100...) через <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="text-accent-light hover:underline">@userinfobot</a> или <a href="https://t.me/RawDataBot" target="_blank" rel="noopener noreferrer" className="text-accent-light hover:underline">@RawDataBot</a></li>
+          <li>Добавьте бота и канал в форму выше</li>
+        </ol>
+      </div>
+    </div>
+  );
+}

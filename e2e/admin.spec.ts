@@ -24,7 +24,7 @@ test.describe("админ-панель", () => {
     await expect(page.getByText("Админ-панель доступна только пользователям с ролью администратора.")).toBeVisible();
   });
 
-  test("администратор видит разделы и управляет ботом и пользователем", async ({ page }) => {
+  test("администратор видит разделы и управляет ботом, пользователем и файлом", async ({ page }) => {
     await mockAuth(page, admin);
 
     let accountActive = true;
@@ -141,27 +141,34 @@ test.describe("админ-панель", () => {
 
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: "Админ-панель" })).toBeVisible();
-    await expect(page.getByText("Основной бот", { exact: true })).toBeVisible();
-    await expect(page.getByText("Пользователи и лимиты")).toBeVisible();
-    await expect(page.getByText("Обзор всех файлов")).toBeVisible();
-    await expect(page.getByText("Журнал действий администраторов")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Пользователи/ }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /Файлы/ }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /Telegram-боты/ }).first()).toBeVisible();
+    await expect(page.getByText("Последние действия")).toBeVisible();
 
+    await page.goto("/admin/bots");
+    await expect(page.getByRole("heading", { name: "Telegram-боты" })).toBeVisible();
+    await expect(page.getByText("Основной бот", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "+ Добавить бота" }).click();
     await page.getByPlaceholder("Основной бот").fill("Резервный бот");
     await page.getByPlaceholder("-1001234567890").fill("-1009876543210");
     await page.getByPlaceholder("123456789:ABCdefGHIjklMNOpqrsTUVwxyz").fill("987654321:XYZ");
     await page.getByRole("checkbox", { name: "Пропустить проверку подключения к Telegram" }).check();
     await page.getByRole("button", { name: "Добавить", exact: true }).click();
-    await expect(page.getByText("Аккаунт успешно добавлен!")).toBeVisible();
+    await expect(page.getByText("Бот успешно добавлен")).toBeVisible();
 
     await page.getByRole("button", { name: "Выключить", exact: true }).click();
     await expect(page.getByRole("button", { name: "Включить", exact: true })).toBeVisible();
 
+    await page.goto("/admin/users");
+    await expect(page.getByRole("heading", { name: "Пользователи" })).toBeVisible();
     const roleSelect = page.getByRole("button", { name: "Роль пользователя user@example.com" });
     await roleSelect.click();
     await page.getByRole("option", { name: "Администратор" }).click();
     await expect(page.getByText("Настройки пользователя обновлены")).toBeVisible();
 
+    await page.goto("/admin/files");
+    await expect(page.getByRole("heading", { name: "Файлы" })).toBeVisible();
     await page.getByRole("button", { name: "Отозвать", exact: true }).click();
     await expect(page.getByRole("button", { name: "Восстановить", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Восстановить", exact: true }).click();
@@ -171,8 +178,9 @@ test.describe("админ-панель", () => {
     await page.getByRole("button", { name: "Удалить файл", exact: true }).click();
     await expect(page.getByText("Файлы не найдены")).toBeVisible();
 
+    await page.goto("/admin/bots");
     page.on("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Удалить", exact: true }).click();
-    await expect(page.getByText("Нет аккаунтов")).toBeVisible();
+    await expect(page.getByText("Нет подключенных ботов")).toBeVisible();
   });
 });

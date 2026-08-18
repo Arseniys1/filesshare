@@ -267,10 +267,12 @@ export default function DashboardPage() {
       </div>
 
       {error && <div className="glass rounded-xl p-4 mb-4 border border-red-500/30 bg-red-500/10"><p className="text-red-400 text-sm">{error}</p></div>}
-      {loading ? <div className="py-20 text-center"><div className="w-10 h-10 mx-auto border-2 border-accent/30 border-t-accent rounded-full animate-spin" /></div> : items.length === 0 ? (
+      {loading && items.length === 0 ? <div className="py-20 text-center"><div className="w-10 h-10 mx-auto border-2 border-accent/30 border-t-accent rounded-full animate-spin" /></div> : items.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center"><div className="text-5xl mb-4">📁</div><h2 className="text-xl font-medium mb-2">Передач пока нет</h2><p className="text-gray-400 text-sm mb-6">Загрузите первый файл после входа в аккаунт.</p><Link href="/" className="inline-block px-5 py-2.5 rounded-xl bg-accent/20 text-accent-light font-medium">Загрузить файл</Link></div>
       ) : (
-        <div className="space-y-3">
+        <div className={`relative transition-opacity ${loading ? "opacity-65" : ""}`}>
+          {loading && <div className="absolute -top-8 right-1 flex items-center gap-2 text-xs text-gray-500"><span className="inline-block h-3 w-3 animate-spin rounded-full border border-accent/30 border-t-accent" /> Обновляем список</div>}
+          <div className="space-y-3">
           {items.map((item) => (
             <div key={item.token} className="glass rounded-2xl p-4 sm:p-5">
               <div className="flex items-start gap-3">
@@ -297,6 +299,7 @@ export default function DashboardPage() {
               {item.expires_at && <p className="text-xs text-gray-500 mt-3">Действует до: {formatDate(item.expires_at)}</p>}
             </div>
           ))}
+          </div>
         </div>
       )}
 

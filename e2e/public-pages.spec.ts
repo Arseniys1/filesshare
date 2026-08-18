@@ -1,4 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { mockGuest } from "./helpers";
+
+test.beforeEach(async ({ page }) => {
+  await mockGuest(page);
+});
 
 test.describe("публичные страницы", () => {
   test("главная страница показывает описание сервиса и навигацию", async ({ page }) => {
@@ -16,6 +21,32 @@ test.describe("публичные страницы", () => {
     await expect(page.getByRole("link", { name: "Регистрация" })).toHaveAttribute(
       "href",
       "/register"
+    );
+  });
+
+  test("главная страница позволяет настроить ссылку и тему оформления", async ({ page }) => {
+    await page.goto("/");
+
+    const individualLink = page.getByRole("radio", { name: /Отдельная ссылка/ });
+    await individualLink.click();
+    await expect(individualLink).toHaveAttribute("aria-checked", "true");
+
+    const expirySelect = page.getByRole("button", { name: "Срок действия ссылки" });
+    await expirySelect.click();
+    await page.getByRole("option", { name: "7 дней" }).click();
+    await expect(expirySelect).toContainText("7 дней");
+
+    await page.getByPlaceholder("Защитить паролем").fill("upload-password");
+    await page.getByPlaceholder("Без ограничения").fill("3");
+    const e2ee = page.getByRole("checkbox");
+    await e2ee.check();
+    await expect(page.getByText("Включено")).toBeVisible();
+
+    await page.getByRole("button", { name: "Выбрать тему оформления" }).click();
+    await expect(page.getByRole("menu", { name: "Тема оформления" })).toBeVisible();
+    await page.getByRole("menuitemradio", { name: "Тёмная" }).click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.themeMode)).toBe(
+      "dark"
     );
   });
 

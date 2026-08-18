@@ -50,6 +50,56 @@ interface EditState {
   clearLimit: boolean;
 }
 
+interface EditTransferPanelProps {
+  edit: EditState;
+  saving: boolean;
+  onChange: (patch: Partial<EditState>) => void;
+  onSave: () => void;
+  onClose: () => void;
+}
+
+function EditTransferPanel({ edit, saving, onChange, onSave, onClose }: EditTransferPanelProps) {
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-accent/15 bg-surface-overlay shadow-lg shadow-black/5">
+      <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-lg text-accent">⚙</div>
+          <div>
+            <h2 className="text-base font-semibold">Настройки ссылки</h2>
+            <p className="mt-0.5 text-xs text-gray-500">Изменения применяются к этой передаче.</p>
+          </div>
+        </div>
+        <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-white/10 hover:text-foreground" aria-label="Закрыть настройки">✕</button>
+      </div>
+      <div className="p-4 sm:p-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">Срок действия</label>
+            <select value={edit.expiry} onChange={(event) => onChange({ expiry: event.target.value })} className="w-full rounded-xl border border-white/10 bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors focus:border-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/10">
+            <option value="keep">Не изменять</option>
+            {EXPIRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">Новый пароль</label>
+            <input type="password" value={edit.password} onChange={(event) => onChange({ password: event.target.value, clearPassword: false })} placeholder="Оставить текущий" className="w-full rounded-xl border border-white/10 bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors placeholder:text-gray-500 focus:border-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/10" />
+            <label className="mt-2.5 flex items-center gap-2 text-xs text-gray-500"><input type="checkbox" checked={edit.clearPassword} onChange={(event) => onChange({ clearPassword: event.target.checked, password: "" })} /> Убрать пароль</label>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">Лимит скачиваний</label>
+            <input type="number" min="1" value={edit.maxDownloads} onChange={(event) => onChange({ maxDownloads: event.target.value, clearLimit: false })} placeholder="Оставить текущий" className="w-full rounded-xl border border-white/10 bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors placeholder:text-gray-500 focus:border-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/10" />
+            <label className="mt-2.5 flex items-center gap-2 text-xs text-gray-500"><input type="checkbox" checked={edit.clearLimit} onChange={(event) => onChange({ clearLimit: event.target.checked, maxDownloads: "" })} /> Убрать лимит</label>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-col-reverse gap-2 border-t border-white/10 pt-4 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm text-gray-500 transition-colors hover:bg-white/10 hover:text-foreground">Отмена</button>
+          <button type="button" onClick={onSave} disabled={saving} className="rounded-xl bg-gradient-to-r from-accent to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-accent/20 transition-opacity hover:opacity-90 disabled:opacity-50">{saving ? "Сохранение..." : "Сохранить"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function statusLabel(item: Transfer): string {
   if (item.revoked) return "Отозвана";
   if (item.expired) return "Истекла";
@@ -87,7 +137,7 @@ export default function DashboardPage() {
         fetch("/api/user/stats"),
         fetch("/api/user/notifications"),
       ]);
-      if (filesResponse.status === 401 || statsResponse.status === 401 || notificationsResponse.status === 401) {
+      if (filesResponse.status === 401) {
         setUnauthenticated(true);
         return;
       }
@@ -291,12 +341,21 @@ export default function DashboardPage() {
                   <button type="button" onClick={() => copyLink(item)} className="px-3 py-2 rounded-lg bg-accent/20 text-accent-light text-sm hover:bg-accent/30">{copied === item.token ? "Скопировано" : item.canRecreateLink ? "Копировать" : "Нет ключа"}</button>
                   <button type="button" onClick={() => showQr(item)} className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10">QR</button>
                   <button type="button" onClick={() => createShortLink(item)} className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10">Короткая</button>
-                  <button type="button" onClick={() => setEdit({ token: item.token, expiry: "never", password: "", maxDownloads: item.max_downloads ? String(item.max_downloads) : "", clearPassword: false, clearLimit: false })} className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10">Изменить</button>
+                  <button type="button" onClick={() => setEdit({ token: item.token, expiry: "keep", password: "", maxDownloads: item.max_downloads ? String(item.max_downloads) : "", clearPassword: false, clearLimit: false })} className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10">Изменить</button>
                   {!item.revoked ? <button type="button" onClick={() => changeStatus(item, "revoke")} className="px-3 py-2 rounded-lg bg-yellow-500/10 text-yellow-400 text-sm hover:bg-yellow-500/20">Отозвать</button> : <button type="button" onClick={() => changeStatus(item, "restore")} className="px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-sm hover:bg-green-500/20">Восстановить</button>}
                   <button type="button" onClick={() => deleteItem(item)} className="px-3 py-2 rounded-lg bg-red-500/10 text-red-400 text-sm hover:bg-red-500/20">Удалить</button>
                 </div>
               </div>
               {item.expires_at && <p className="text-xs text-gray-500 mt-3">Действует до: {formatDate(item.expires_at)}</p>}
+              {edit?.token === item.token && (
+                <EditTransferPanel
+                  edit={edit}
+                  saving={saving}
+                  onChange={(patch) => setEdit({ ...edit, ...patch })}
+                  onSave={saveEdit}
+                  onClose={() => setEdit(null)}
+                />
+              )}
             </div>
           ))}
           </div>
@@ -305,7 +364,6 @@ export default function DashboardPage() {
 
       {totalPages > 1 && <div className="flex items-center justify-center gap-3 mt-6"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="px-4 py-2 rounded-xl bg-white/5 text-sm disabled:opacity-40">Назад</button><span className="text-sm text-gray-400">{page} / {totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)} className="px-4 py-2 rounded-xl bg-white/5 text-sm disabled:opacity-40">Вперёд</button></div>}
 
-      {edit && <div className="fixed inset-x-0 top-20 z-[60] flex justify-center px-4 pointer-events-none"><div className="glass rounded-2xl p-6 w-full max-w-md shadow-2xl pointer-events-auto"><div className="flex items-center justify-between mb-5"><h2 className="text-xl font-semibold">Настройки ссылки</h2><button type="button" onClick={() => setEdit(null)} className="text-gray-400 hover:text-white">✕</button></div><div className="space-y-4"><div><label className="block text-sm text-gray-400 mb-1.5">Срок действия</label><select value={edit.expiry} onChange={(event) => setEdit({ ...edit, expiry: event.target.value })} className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm"><option value="keep">Не изменять</option>{EXPIRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div><div><label className="block text-sm text-gray-400 mb-1.5">Новый пароль</label><input type="password" value={edit.password} onChange={(event) => setEdit({ ...edit, password: event.target.value, clearPassword: false })} placeholder="Оставить текущий" className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm" /><label className="flex items-center gap-2 text-xs text-gray-400 mt-2"><input type="checkbox" checked={edit.clearPassword} onChange={(event) => setEdit({ ...edit, clearPassword: event.target.checked, password: "" })} /> Убрать пароль</label></div><div><label className="block text-sm text-gray-400 mb-1.5">Лимит скачиваний</label><input type="number" min="1" value={edit.maxDownloads} onChange={(event) => setEdit({ ...edit, maxDownloads: event.target.value, clearLimit: false })} placeholder="Оставить текущий" className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm" /><label className="flex items-center gap-2 text-xs text-gray-400 mt-2"><input type="checkbox" checked={edit.clearLimit} onChange={(event) => setEdit({ ...edit, clearLimit: event.target.checked, maxDownloads: "" })} /> Убрать лимит</label></div><button type="button" onClick={saveEdit} disabled={saving} className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium disabled:opacity-50">{saving ? "Сохранение..." : "Сохранить"}</button></div></div></div>}
       {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl"><h2 className="text-xl font-semibold mb-4">QR-код</h2><div className="rounded-xl bg-white p-3 inline-block"><Image src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="text-sm text-gray-400 mt-4 break-all">{qr.name}</p><button type="button" onClick={() => setQr(null)} className="mt-5 w-full py-2.5 rounded-xl bg-white/5 text-gray-300">Закрыть</button></div></div>}
     </div>
   );

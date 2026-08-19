@@ -201,21 +201,6 @@ export default function DashboardPage() {
     setQr({ name: item.name, dataUrl: await QRCode.toDataURL(item.shareUrl, { width: 280, margin: 2 }) });
   };
 
-  const createShortLink = async (item: Transfer) => {
-    if (!item.canRecreateLink) {
-      setError("Для E2EE-файла короткая ссылка не может содержать ключ из URL-фрагмента.");
-      return;
-    }
-    const response = await fetch(`/api/user/files/${encodeURIComponent(item.token)}?action=short-link`, { method: "POST" });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) setError(data.error || "Не удалось создать короткую ссылку");
-    else if (data.shortUrl) {
-      await navigator.clipboard.writeText(data.shortUrl);
-      setCopied(item.token);
-      window.setTimeout(() => setCopied(null), 1800);
-    }
-  };
-
   const changeStatus = async (item: Transfer, action: "revoke" | "restore") => {
     const response = await fetch(`/api/user/files/${encodeURIComponent(item.token)}?action=${action}`, { method: "POST" });
     const data = await response.json().catch(() => ({}));
@@ -356,7 +341,6 @@ export default function DashboardPage() {
                 <div className="flex flex-wrap justify-end gap-2">
                   <button type="button" onClick={() => copyLink(item)} className="px-3 py-2 rounded-lg bg-accent/20 text-accent-light text-sm hover:bg-accent/30">{copied === item.token ? "Скопировано" : item.canRecreateLink ? "Копировать" : "Нет ключа"}</button>
                   <button type="button" onClick={() => showQr(item)} className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10">QR</button>
-                  <button type="button" onClick={() => createShortLink(item)} className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10">Короткая</button>
                   <button type="button" onClick={() => setEdit({ token: item.token, expiry: "keep", password: "", maxDownloads: item.max_downloads ? String(item.max_downloads) : "", clearPassword: false, clearLimit: false })} className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10">Изменить</button>
                   {!item.revoked ? <button type="button" onClick={() => changeStatus(item, "revoke")} className="px-3 py-2 rounded-lg bg-yellow-500/10 text-yellow-400 text-sm hover:bg-yellow-500/20">Отозвать</button> : <button type="button" onClick={() => changeStatus(item, "restore")} className="px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-sm hover:bg-green-500/20">Восстановить</button>}
                   <button type="button" onClick={() => deleteItem(item)} className="px-3 py-2 rounded-lg bg-red-500/10 text-red-400 text-sm hover:bg-red-500/20">Удалить</button>

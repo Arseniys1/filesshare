@@ -70,7 +70,7 @@ test.describe("личный кабинет", () => {
         const action = url.searchParams.get("action");
         if (action === "revoke") revoked = true;
         if (action === "restore") revoked = false;
-        await fulfillJson(route, { shortUrl: "http://127.0.0.1:3000/s/short" });
+        await fulfillJson(route, { success: true });
         return;
       }
 
@@ -123,8 +123,7 @@ test.describe("личный кабинет", () => {
     await expect(page.getByAltText("QR-код: report.pdf")).toBeVisible();
     await page.getByRole("button", { name: "Закрыть", exact: true }).click();
 
-    await page.getByRole("button", { name: "Короткая", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Скопировано", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Короткая", exact: true })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Изменить", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Настройки ссылки" })).toBeVisible();

@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useCallback, useRef } from "react";
+import QRCode from "qrcode";
 import {
   addE2EEKeysToShareUrl,
   addE2EEKeyToShareUrl,
@@ -64,6 +66,7 @@ export default function UploadZone({
   const [linkMode, setLinkMode] = useState<LinkMode>("group");
   const [endToEndEncryption, setEndToEndEncryption] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [qr, setQr] = useState<{ name: string; dataUrl: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pausedRef = useRef(false);
   const resumeResolversRef = useRef<Array<() => void>>([]);
@@ -318,6 +321,10 @@ export default function UploadZone({
     await navigator.clipboard.writeText(links);
     setCopiedToken("all");
     setTimeout(() => setCopiedToken(null), 2000);
+  };
+
+  const showQr = async (file: UploadedFile) => {
+    setQr({ name: file.isGroup ? `Пакет из ${file.fileCount} файлов` : file.name, dataUrl: await QRCode.toDataURL(file.shareUrl, { width: 280, margin: 2 }) });
   };
 
   const doneCount = queue.filter((q) => q.status === "done").length;
@@ -658,16 +665,28 @@ export default function UploadZone({
                   {file.storageEncrypted && <span> · 🛡️ зашифрован в хранилище</span>}
                 </p>
               </div>
-              <button
-                onClick={() => copyLink(file.shareUrl, file.token)}
-                className="px-4 py-2 rounded-lg bg-accent/20 text-accent-light text-sm font-medium hover:bg-accent/30 transition-colors flex-shrink-0"
-              >
-                {copiedToken === file.token ? "Скопировано!" : "Копировать"}
-              </button>
+              <div className="flex flex-shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => showQr(file)}
+                  className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition-colors"
+                >
+                  QR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyLink(file.shareUrl, file.token)}
+                  className="px-4 py-2 rounded-lg bg-accent/20 text-accent-light text-sm font-medium hover:bg-accent/30 transition-colors"
+                >
+                  {copiedToken === file.token ? "Скопировано!" : "Копировать"}
+                </button>
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl"><h2 className="text-xl font-semibold mb-4">QR-код</h2><div className="rounded-xl bg-white p-3 inline-block"><Image src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="text-sm text-gray-400 mt-4 break-all">{qr.name}</p><button type="button" onClick={() => setQr(null)} className="mt-5 w-full py-2.5 rounded-xl bg-white/5 text-gray-300">Закрыть</button></div></div>}
     </div>
   );
 }

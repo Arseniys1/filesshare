@@ -28,6 +28,10 @@ test("загрузка небольшого файла показывает оч
 
   await expect(page.getByText("Ссылки на файлы (1)")).toBeVisible();
   await expect(page.getByText("hello.txt", { exact: true }).last()).toBeVisible();
+  await page.getByRole("button", { name: "QR", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "QR-код" })).toBeVisible();
+  await expect(page.getByAltText("QR-код: hello.txt")).toBeVisible();
+  await page.getByRole("button", { name: "Закрыть", exact: true }).click();
   await page.getByRole("button", { name: "Копировать", exact: true }).click();
   await expect(page.getByRole("button", { name: "Скопировано!", exact: true })).toBeVisible();
 });

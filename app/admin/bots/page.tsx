@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ThemedCheckbox from "@/components/ThemedCheckbox";
 
 interface StorageAccount {
   id: number;
@@ -125,7 +126,7 @@ export default function AdminBotsPage() {
             <input value={formData.botToken} onChange={(event) => setFormData({ ...formData, botToken: event.target.value })} placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz" required className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 font-mono" />
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
-            <input type="checkbox" checked={skipConnectionTest} onChange={(event) => setSkipConnectionTest(event.target.checked)} className="rounded border-white/20" />
+            <ThemedCheckbox checked={skipConnectionTest} onChange={(event) => setSkipConnectionTest(event.target.checked)} />
             Пропустить проверку подключения к Telegram
           </label>
           <button type="submit" disabled={submitting} className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50">{submitting ? "Проверка и добавление..." : "Добавить"}</button>

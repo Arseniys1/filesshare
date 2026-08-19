@@ -9,6 +9,7 @@ import {
 } from "@/lib/e2ee-client";
 import { uploadE2EEFileResumable, uploadFileResumable } from "@/lib/resumable-upload-client";
 import { EXPIRY_OPTIONS, formatFileSize } from "@/lib/utils";
+import ThemedCheckbox from "@/components/ThemedCheckbox";
 import ThemedSelect from "@/components/ThemedSelect";
 
 interface UploadedFile {
@@ -535,12 +536,10 @@ export default function UploadZone({
               : "border-white/10 bg-surface-overlay hover:border-accent/30 hover:bg-accent/[0.04]"
           }`}
         >
-          <input
-            type="checkbox"
+          <ThemedCheckbox
             checked={endToEndEncryption}
             onChange={(e) => setEndToEndEncryption(e.target.checked)}
             disabled={uploading}
-            className="h-5 w-5 flex-shrink-0 accent-accent"
           />
           <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-light">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

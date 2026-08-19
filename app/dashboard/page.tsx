@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { EXPIRY_OPTIONS, formatDate, formatFileSize, getFileIcon } from "@/lib/utils";
+import ThemedCheckbox from "@/components/ThemedCheckbox";
 import ThemedSelect from "@/components/ThemedSelect";
 
 type Status = "active" | "expired" | "revoked" | "password" | "e2ee" | "";
@@ -87,12 +88,12 @@ function EditTransferPanel({ edit, saving, onChange, onSave, onClose }: EditTran
           <div>
             <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">Новый пароль</label>
             <input type="password" value={edit.password} onChange={(event) => onChange({ password: event.target.value, clearPassword: false })} placeholder="Оставить текущий" className="w-full rounded-xl border border-white/10 bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors placeholder:text-gray-500 focus:border-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/10" />
-            <label className="mt-2.5 flex items-center gap-2 text-xs text-gray-500"><input type="checkbox" checked={edit.clearPassword} onChange={(event) => onChange({ clearPassword: event.target.checked, password: "" })} /> Убрать пароль</label>
+            <label className="mt-2.5 flex items-center gap-2 text-xs text-gray-500"><ThemedCheckbox checked={edit.clearPassword} onChange={(event) => onChange({ clearPassword: event.target.checked, password: "" })} /> Убрать пароль</label>
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">Лимит скачиваний</label>
             <input type="number" min="1" value={edit.maxDownloads} onChange={(event) => onChange({ maxDownloads: event.target.value, clearLimit: false })} placeholder="Оставить текущий" className="w-full rounded-xl border border-white/10 bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors placeholder:text-gray-500 focus:border-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/10" />
-            <label className="mt-2.5 flex items-center gap-2 text-xs text-gray-500"><input type="checkbox" checked={edit.clearLimit} onChange={(event) => onChange({ clearLimit: event.target.checked, maxDownloads: "" })} /> Убрать лимит</label>
+            <label className="mt-2.5 flex items-center gap-2 text-xs text-gray-500"><ThemedCheckbox checked={edit.clearLimit} onChange={(event) => onChange({ clearLimit: event.target.checked, maxDownloads: "" })} /> Убрать лимит</label>
           </div>
         </div>
         <div className="mt-5 flex flex-col-reverse gap-2 border-t border-white/10 pt-4 sm:flex-row sm:justify-end">
@@ -281,9 +282,9 @@ export default function DashboardPage() {
             {notificationSaving && <span className="text-xs text-gray-500">Сохранение...</span>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <label className="flex items-center gap-2 text-gray-300"><input type="checkbox" checked={notifications.email_enabled === 1} onChange={(event) => updateNotifications({ email_enabled: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> Все уведомления</label>
-            <label className="flex items-center gap-2 text-gray-300"><input type="checkbox" checked={notifications.download_notifications === 1} onChange={(event) => updateNotifications({ download_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> О каждом скачивании</label>
-            <label className="flex items-center gap-2 text-gray-300"><input type="checkbox" checked={notifications.summary_notifications === 1} onChange={(event) => updateNotifications({ summary_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> Сводные уведомления</label>
+            <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.email_enabled === 1} onChange={(event) => updateNotifications({ email_enabled: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> Все уведомления</label>
+            <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.download_notifications === 1} onChange={(event) => updateNotifications({ download_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> О каждом скачивании</label>
+            <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.summary_notifications === 1} onChange={(event) => updateNotifications({ summary_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> Сводные уведомления</label>
           </div>
           <label className="flex items-center gap-3 text-sm text-gray-400 mt-4">Предупреждать об окончании за
             <ThemedSelect

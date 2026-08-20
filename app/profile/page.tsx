@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { formatDate } from "@/lib/utils";
 import UserAvatar from "@/components/UserAvatar";
+import ThemedCheckbox from "@/components/ThemedCheckbox";
+import ThemedSelect from "@/components/ThemedSelect";
 
 interface ProfileUser {
   email: string;
@@ -17,6 +19,13 @@ interface ApiKey {
   prefix: string;
   lastUsedAt: string | null;
   createdAt: string;
+}
+
+interface NotificationSettings {
+  email_enabled: number;
+  download_notifications: number;
+  summary_notifications: number;
+  expiry_warning_days: number;
 }
 
 interface ApiKeyPage {
@@ -37,14 +46,18 @@ const EMPTY_PAGE: ApiKeyPage = {
 
 export default function ProfilePage() {
   const t = useTranslations("profile");
+  const dashboardT = useTranslations("dashboard");
   const navT = useTranslations("nav");
   const locale = useLocale();
   const [user, setUser] = useState<ProfileUser | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKeyPage>(EMPTY_PAGE);
+  const [notifications, setNotifications] =
+    useState<NotificationSettings | null>(null);
   const [page, setPage] = useState(1);
   const [name, setName] = useState("");
   const [secret, setSecret] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [notificationSaving, setNotificationSaving] = useState(false);
   const [regeneratingAvatar, setRegeneratingAvatar] = useState(false);
   const [loading, setLoading] = useState(true);
   const [unauthenticated, setUnauthenticated] = useState(false);
@@ -62,16 +75,21 @@ export default function ProfilePage() {
       }
       setUser(authData.user);
 
-      const keysResponse = await fetch(
-        `/api/user/api-keys?page=${page}&pageSize=10`,
-      );
+      const [keysResponse, notificationsResponse] = await Promise.all([
+        fetch(`/api/user/api-keys?page=${page}&pageSize=10`),
+        fetch("/api/user/notifications"),
+      ]);
       const keysData = await keysResponse.json().catch(() => ({}));
+      const notificationsData = await notificationsResponse
+        .json()
+        .catch(() => ({}));
       if (keysResponse.status === 401) {
         setUnauthenticated(true);
         return;
       }
       if (!keysResponse.ok) throw new Error(t("loadingKeys"));
       setApiKeys({ ...EMPTY_PAGE, ...keysData });
+      if (notificationsResponse.ok) setNotifications(notificationsData);
     } catch (loadError) {
       setError(
         loadError instanceof Error ? loadError.message : t("loadingKeys"),
@@ -80,6 +98,32 @@ export default function ProfilePage() {
       setLoading(false);
     }
   }, [page, t]);
+
+  const updateNotifications = async (
+    patch: Partial<NotificationSettings>,
+  ) => {
+    if (!notifications) return;
+    setNotificationSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/user/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(dashboardT("emailNotifications"));
+      setNotifications(data);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : dashboardT("emailNotifications"),
+      );
+    } finally {
+      setNotificationSaving(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -203,6 +247,79 @@ export default function ProfilePage() {
         <div className="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
           {error}
         </div>
+      )}
+
+      {notifications && (
+        <section className="glass mb-6 rounded-2xl p-4 sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="font-semibold">
+              {dashboardT("emailNotifications")}
+            </h2>
+            {notificationSaving && (
+              <span className="text-xs text-gray-500">
+                {dashboardT("saving")}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+            <label className="flex items-center gap-2 text-gray-300">
+              <ThemedCheckbox
+                checked={notifications.email_enabled === 1}
+                onChange={(event) =>
+                  updateNotifications({
+                    email_enabled: event.target.checked ? 1 : 0,
+                  })
+                }
+                disabled={notificationSaving}
+              />{" "}
+              {dashboardT("allNotifications")}
+            </label>
+            <label className="flex items-center gap-2 text-gray-300">
+              <ThemedCheckbox
+                checked={notifications.download_notifications === 1}
+                onChange={(event) =>
+                  updateNotifications({
+                    download_notifications: event.target.checked ? 1 : 0,
+                  })
+                }
+                disabled={notificationSaving}
+              />{" "}
+              {dashboardT("eachDownload")}
+            </label>
+            <label className="flex items-center gap-2 text-gray-300">
+              <ThemedCheckbox
+                checked={notifications.summary_notifications === 1}
+                onChange={(event) =>
+                  updateNotifications({
+                    summary_notifications: event.target.checked ? 1 : 0,
+                  })
+                }
+                disabled={notificationSaving}
+              />{" "}
+              {dashboardT("summaryNotifications")}
+            </label>
+          </div>
+          <label className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-400">
+            {dashboardT("warnBeforeExpiry")}
+            <ThemedSelect
+              value={String(notifications.expiry_warning_days)}
+              options={[
+                { value: "0", label: dashboardT("doNotWarn") },
+                { value: "1", label: dashboardT("days", { count: 1 }) },
+                { value: "2", label: dashboardT("days", { count: 2 }) },
+                { value: "3", label: dashboardT("days", { count: 3 }) },
+                { value: "7", label: dashboardT("days", { count: 7 }) },
+                { value: "14", label: dashboardT("days", { count: 14 }) },
+                { value: "30", label: dashboardT("days", { count: 30 }) },
+              ]}
+              onChange={(value) =>
+                updateNotifications({ expiry_warning_days: Number(value) })
+              }
+              disabled={notificationSaving}
+              ariaLabel={dashboardT("warnBeforeExpiry")}
+            />
+          </label>
+        </section>
       )}
 
       <section className="glass mb-6 rounded-2xl p-4 sm:p-5">

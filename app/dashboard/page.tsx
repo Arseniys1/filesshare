@@ -46,13 +46,6 @@ interface Stats {
   }>;
 }
 
-interface NotificationSettings {
-  email_enabled: number;
-  download_notifications: number;
-  summary_notifications: number;
-  expiry_warning_days: number;
-}
-
 interface EditState {
   token: string;
   expiry: string;
@@ -236,9 +229,6 @@ export default function DashboardPage() {
   const locale = useLocale();
   const [items, setItems] = useState<Transfer[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [notifications, setNotifications] =
-    useState<NotificationSettings | null>(null);
-  const [notificationSaving, setNotificationSaving] = useState(false);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<Status>("");
   const [sort, setSort] = useState("created");
@@ -265,55 +255,28 @@ export default function DashboardPage() {
       });
       if (q.trim()) params.set("q", q.trim());
       if (status) params.set("status", status);
-      const [filesResponse, statsResponse, notificationsResponse] =
-        await Promise.all([
-          fetch(`/api/user/files?${params}`),
-          fetch("/api/user/stats"),
-          fetch("/api/user/notifications"),
-        ]);
+      const [filesResponse, statsResponse] = await Promise.all([
+        fetch(`/api/user/files?${params}`),
+        fetch("/api/user/stats"),
+      ]);
       if (filesResponse.status === 401) {
         setUnauthenticated(true);
         return;
       }
       const filesData = await filesResponse.json();
       const statsData = await statsResponse.json();
-      const notificationsData = await notificationsResponse.json();
       if (!filesResponse.ok) throw new Error(filesData.error || t("files"));
       setItems(filesData.items);
       setTotal(filesData.total);
       if (Number.isInteger(filesData.page) && filesData.page >= 1)
         setPage(filesData.page);
       setStats(statsData);
-      if (notificationsResponse.ok) setNotifications(notificationsData);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("cabinet"));
     } finally {
       setLoading(false);
     }
   }, [page, q, sort, status, t]);
-
-  const updateNotifications = async (patch: Partial<NotificationSettings>) => {
-    if (!notifications) return;
-    setNotificationSaving(true);
-    try {
-      const response = await fetch("/api/user/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(t("emailNotifications"));
-      setNotifications(data);
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : t("emailNotifications"),
-      );
-    } finally {
-      setNotificationSaving(false);
-    }
-  };
 
   useEffect(() => {
     load();
@@ -455,77 +418,6 @@ export default function DashboardPage() {
             </p>
             <p className="text-sm text-gray-400">{t("recentEvents")}</p>
           </div>
-        </div>
-      )}
-
-      {notifications && (
-        <div className="glass mb-6 rounded-2xl p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <h2 className="font-semibold">{t("emailNotifications")}</h2>
-            </div>
-            {notificationSaving && (
-              <span className="text-xs text-gray-500">{t("saving")}</span>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <label className="flex items-center gap-2 text-gray-300">
-              <ThemedCheckbox
-                checked={notifications.email_enabled === 1}
-                onChange={(event) =>
-                  updateNotifications({
-                    email_enabled: event.target.checked ? 1 : 0,
-                  })
-                }
-                disabled={notificationSaving}
-              />{" "}
-              {t("allNotifications")}
-            </label>
-            <label className="flex items-center gap-2 text-gray-300">
-              <ThemedCheckbox
-                checked={notifications.download_notifications === 1}
-                onChange={(event) =>
-                  updateNotifications({
-                    download_notifications: event.target.checked ? 1 : 0,
-                  })
-                }
-                disabled={notificationSaving}
-              />{" "}
-              {t("eachDownload")}
-            </label>
-            <label className="flex items-center gap-2 text-gray-300">
-              <ThemedCheckbox
-                checked={notifications.summary_notifications === 1}
-                onChange={(event) =>
-                  updateNotifications({
-                    summary_notifications: event.target.checked ? 1 : 0,
-                  })
-                }
-                disabled={notificationSaving}
-              />{" "}
-              {t("summaryNotifications")}
-            </label>
-          </div>
-          <label className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-400">
-            {t("warnBeforeExpiry")}
-            <ThemedSelect
-              value={String(notifications.expiry_warning_days)}
-              options={[
-                { value: "0", label: t("doNotWarn") },
-                { value: "1", label: t("days", { count: 1 }) },
-                { value: "2", label: t("days", { count: 2 }) },
-                { value: "3", label: t("days", { count: 3 }) },
-                { value: "7", label: t("days", { count: 7 }) },
-                { value: "14", label: t("days", { count: 14 }) },
-                { value: "30", label: t("days", { count: 30 }) },
-              ]}
-              onChange={(value) =>
-                updateNotifications({ expiry_warning_days: Number(value) })
-              }
-              disabled={notificationSaving}
-              ariaLabel={t("warnBeforeExpiry")}
-            />
-          </label>
         </div>
       )}
 

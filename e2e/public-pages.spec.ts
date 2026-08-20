@@ -44,6 +44,13 @@ test.describe("публичные страницы", () => {
       "href",
       "/api/docs/openapi"
     );
+
+    await page.getByRole("button", { name: "Выбрать тему оформления" }).click();
+    await page.getByRole("menuitemradio", { name: "Светлая" }).click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("light");
+    await expect(page.locator("pre.api-code-block").first()).toHaveCSS("background-color", "rgb(238, 242, 246)");
+    await expect(page.locator("pre.api-error-code").first()).toHaveCSS("background-color", "rgb(255, 241, 242)");
+    await expect(page.locator("code.api-path").first()).toHaveCSS("color", "rgb(29, 41, 57)");
   });
 
   test("главная страница позволяет настроить ссылку и тему оформления", async ({ page }) => {

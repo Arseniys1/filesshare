@@ -351,7 +351,7 @@ export default function ApiDocsPage() {
             <p className="text-gray-400 text-sm leading-6">
               Создайте ключ в профиле пользователя. Секрет показывается только один раз. Передавайте его в каждом запросе через заголовок <code className="text-accent-light">Authorization: Bearer &lt;API_KEY&gt;</code>.
             </p>
-            <pre className="mt-4 overflow-x-auto rounded-xl bg-black/30 p-4 text-sm text-gray-300"><code>{curlExample}</code></pre>
+            <pre className="api-code-block mt-4 overflow-x-auto rounded-xl p-4 text-sm"><code>{curlExample}</code></pre>
           </section>
 
           <section className="glass rounded-2xl p-5">
@@ -377,7 +377,7 @@ export default function ApiDocsPage() {
                   {endpoints.map((endpoint) => (
                     <tr key={`${endpoint.method}-${endpoint.path}`} className="border-b border-white/5 last:border-0">
                       <td className="py-3 pr-4 font-mono text-accent-light whitespace-nowrap">{endpoint.method}</td>
-                      <td className="py-3 pr-4 font-mono text-gray-300 whitespace-nowrap">{endpoint.path}</td>
+                      <td className="api-path py-3 pr-4 font-mono whitespace-nowrap">{endpoint.path}</td>
                       <td className="py-3 text-gray-400">{endpoint.description}</td>
                     </tr>
                   ))}
@@ -400,7 +400,7 @@ export default function ApiDocsPage() {
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-center gap-2">
                         <span className={`rounded-md px-2 py-1 font-mono text-xs font-semibold ${methodClass(endpoint.method)}`}>{endpoint.method}</span>
-                        <code className="min-w-0 break-all text-sm text-gray-200">{endpoint.path}</code>
+                        <code className="api-path min-w-0 break-all text-sm">{endpoint.path}</code>
                       </div>
                       <span className="text-xs text-gray-500">{endpoint.description}</span>
                     </div>
@@ -465,7 +465,7 @@ export default function ApiDocsPage() {
 
           <section className="glass rounded-2xl p-5">
             <h2 className="text-xl font-semibold mb-3">Ошибки</h2>
-            <pre className="overflow-x-auto rounded-xl bg-black/30 p-4 text-sm text-gray-300"><code>{errorExample}</code></pre>
+            <pre className="api-error-code overflow-x-auto rounded-xl p-4 text-sm"><code>{errorExample}</code></pre>
             <p className="text-gray-400 text-sm leading-6 mt-3">
               Используются стандартные HTTP-коды: 401 для неверного ключа, 403 для заблокированного пользователя, 404 для отсутствующего объекта, 409 для конфликта и 429 для превышения лимита.
             </p>
@@ -487,7 +487,7 @@ export default function ApiDocsPage() {
                 >
                   <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ${methodClass(endpoint.method)}`}>{endpoint.method}</span>
                   <span className="min-w-0">
-                    <code className="block break-all text-gray-300">{endpoint.path}</code>
+                    <code className="api-path block break-all">{endpoint.path}</code>
                     <span className="mt-0.5 block text-gray-500">{endpoint.description}</span>
                   </span>
                 </a>

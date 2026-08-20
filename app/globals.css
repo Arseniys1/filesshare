@@ -165,6 +165,47 @@ html[data-theme="light"] .placeholder\:text-gray-600::placeholder {
   color: #98a2b3;
 }
 
+.api-path {
+  color: #e5e7eb;
+}
+
+html.light .api-path,
+html[data-theme="light"] .api-path {
+  color: #1d2939;
+  font-weight: 500;
+}
+
+.api-code-block {
+  background: rgba(2, 6, 23, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+}
+
+html.light .api-code-block,
+html[data-theme="light"] .api-code-block {
+  background: #eef2f6;
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #1d2939;
+}
+
+.api-code-block code,
+.api-error-code code {
+  color: inherit;
+}
+
+.api-error-code {
+  background: rgba(127, 29, 29, 0.2);
+  border: 1px solid rgba(251, 113, 133, 0.25);
+  color: #fecdd3;
+}
+
+html.light .api-error-code,
+html[data-theme="light"] .api-error-code {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #881337;
+}
+
 html.light ::-webkit-scrollbar-thumb,
 html[data-theme="light"] ::-webkit-scrollbar-thumb {
   background: rgba(79, 70, 229, 0.3);

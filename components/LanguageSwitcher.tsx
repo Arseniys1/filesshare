@@ -92,9 +92,12 @@ export default function LanguageSwitcher() {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-overlay text-xl shadow-lg shadow-black/20 ring-1 ring-white/10 transition-all duration-200 hover:scale-105 hover:ring-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/25 active:scale-95"
+        className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-surface-overlay text-xl shadow-lg shadow-black/20 ring-1 ring-white/10 transition-all duration-200 hover:scale-105 hover:ring-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/25 active:scale-95"
       >
-        <span className={`fi fi-${current.countryCode} h-5 w-7 rounded-sm`} aria-hidden="true" />
+        <span
+          className={`fi fi-${current.countryCode} language-flag absolute inset-0`}
+          aria-hidden="true"
+        />
       </button>
     </div>
   );

@@ -24,7 +24,7 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, password, passwordConfirmation }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t("registerError"));
+      if (!response.ok) throw new Error(t("registerError"));
       window.location.href = data.user?.role === "admin" ? "/admin" : "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : t("registerError"));

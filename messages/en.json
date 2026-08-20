@@ -58,6 +58,7 @@
     "sendLink": "Send link",
     "sending": "Sending...",
     "sendError": "Unable to send the request. Please try again.",
+    "forgotSuccess": "If an account with this email exists, a password reset link has been sent.",
     "devLink": "Dev link:",
     "openReset": "open reset page",
     "backToLogin": "Back to login",

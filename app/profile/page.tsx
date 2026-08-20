@@ -67,7 +67,7 @@ export default function ProfilePage() {
         setUnauthenticated(true);
         return;
       }
-      if (!keysResponse.ok) throw new Error(keysData.error || t("loadingKeys"));
+      if (!keysResponse.ok) throw new Error(t("loadingKeys"));
       setApiKeys({ ...EMPTY_PAGE, ...keysData });
     } catch (loadError) {
       setError(
@@ -92,7 +92,7 @@ export default function ProfilePage() {
         body: JSON.stringify({ name }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || t("createKey"));
+      if (!response.ok) throw new Error(t("createKey"));
       setName("");
       setSecret(data.secret);
       if (page !== 1) setPage(1);
@@ -113,8 +113,7 @@ export default function ProfilePage() {
       const response = await fetch(`/api/user/api-keys/${key.id}`, {
         method: "DELETE",
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || t("revoke"));
+      if (!response.ok) throw new Error(t("revoke"));
       if (apiKeys.items.length === 1 && page > 1) setPage(page - 1);
       else await load();
     } catch (revokeError) {

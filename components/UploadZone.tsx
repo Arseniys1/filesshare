@@ -115,7 +115,7 @@ export default function UploadZone({
       }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || t("groupCreateError"));
+    if (!response.ok) throw new Error(t("groupCreateError"));
     return data.group;
   }, [expiry, maxDownloads, password, t]);
 
@@ -159,7 +159,7 @@ export default function UploadZone({
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || t("uploadError"));
+      throw new Error(t("uploadError"));
     }
     return data.file;
   }, [endToEndEncryption, expiry, maxDownloads, password, t, uploadProgressOptions]);

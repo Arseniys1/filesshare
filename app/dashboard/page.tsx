@@ -295,7 +295,7 @@ export default function DashboardPage() {
         body: JSON.stringify(patch),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t("emailNotifications"));
+      if (!response.ok) throw new Error(t("emailNotifications"));
       setNotifications(data);
     } catch (saveError) {
       setError(
@@ -352,8 +352,7 @@ export default function DashboardPage() {
       `/api/user/files/${encodeURIComponent(item.token)}?action=${action}`,
       { method: "POST" },
     );
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) setError(data.error || t("edit"));
+    if (!response.ok) setError(t("edit"));
     else load();
   };
 
@@ -363,8 +362,7 @@ export default function DashboardPage() {
       `/api/user/files/${encodeURIComponent(item.token)}`,
       { method: "DELETE" },
     );
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) setError(data.error || t("delete"));
+    if (!response.ok) setError(t("delete"));
     else load();
   };
 
@@ -386,8 +384,7 @@ export default function DashboardPage() {
           body: JSON.stringify(body),
         },
       );
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || t("save"));
+      if (!response.ok) throw new Error(t("save"));
       setEdit(null);
       await load();
     } catch (saveError) {

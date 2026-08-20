@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
       const data = await response.json();
-      setMessage(data.message);
+      setMessage(response.ok ? t("forgotSuccess") : t("sendError"));
       setResetUrl(data.resetUrl || null);
     } catch {
       setMessage(t("sendError"));

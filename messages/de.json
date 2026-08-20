@@ -58,6 +58,7 @@
     "sendLink": "Link senden",
     "sending": "Wird gesendet...",
     "sendError": "Anfrage konnte nicht gesendet werden. Bitte versuche es erneut.",
+    "forgotSuccess": "Wenn ein Konto mit dieser E-Mail existiert, wurde ein Link zum Zurücksetzen des Passworts gesendet.",
     "devLink": "Dev-Link:",
     "openReset": "Passwort zurücksetzen",
     "backToLogin": "Zurück zur Anmeldung",

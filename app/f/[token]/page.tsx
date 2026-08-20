@@ -54,10 +54,8 @@ interface SharedGroup {
 type ShareInfo = SharedFile | SharedGroup;
 
 function getDownloadError(response: Response, fallback: string): Promise<Error> {
-  return response
-    .json()
-    .catch(() => ({}))
-    .then((data: { error?: string }) => new Error(data.error || fallback));
+  void response;
+  return Promise.resolve(new Error(fallback));
 }
 
 export default function SharePage() {
@@ -80,7 +78,7 @@ export default function SharePage() {
         const data = await res.json();
 
         if (!res.ok) {
-          setError(data.error);
+          setError(t("loadError"));
           return;
         }
 

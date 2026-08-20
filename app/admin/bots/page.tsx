@@ -34,7 +34,7 @@ export default function AdminBotsPage() {
     try {
       const response = await fetch("/api/admin/accounts");
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || t("botLoadError"));
+      if (!response.ok) throw new Error(t("botLoadError"));
       setAccounts(data.accounts);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t("botLoadFailure"));
@@ -61,10 +61,9 @@ export default function AdminBotsPage() {
           testConnection: !skipConnectionTest,
         }),
       });
-      const data = await response.json().catch(() => ({}));
       if (!response.ok)
         throw new Error(
-          data.error || `${t("botAddError")} (${response.status})`,
+          `${t("botAddError")} (${response.status})`,
         );
       setSuccess(t("botAdded"));
       setFormData({ name: "", botToken: "", channelId: "" });
@@ -85,8 +84,7 @@ export default function AdminBotsPage() {
       body: JSON.stringify({ id: account.id, isActive: !account.isActive }),
     });
     if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setError(data.error || t("botStateError"));
+      setError(t("botStateError"));
       return;
     }
     await loadAccounts();
@@ -103,8 +101,7 @@ export default function AdminBotsPage() {
       method: "DELETE",
     });
     if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setError(data.error || t("botDeleteError"));
+      setError(t("botDeleteError"));
       return;
     }
     setSuccess(t("botDeleted"));

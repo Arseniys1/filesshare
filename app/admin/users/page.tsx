@@ -100,7 +100,7 @@ export default function AdminUsersPage() {
     fetch(`/api/admin/users?${params.toString()}`)
       .then(async (response) => {
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || t("userLoadError"));
+        if (!response.ok) throw new Error(t("userLoadError"));
         return data as {
           users: AdminUser[];
           page: number;
@@ -134,9 +134,8 @@ export default function AdminUsersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: user.id, ...data }),
     });
-    const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setError(result.error || t("userUpdateError"));
+      setError(t("userUpdateError"));
       return;
     }
     setSuccess(t("userUpdated"));

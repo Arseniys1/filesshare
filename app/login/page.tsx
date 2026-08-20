@@ -22,8 +22,7 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t("loginError"));
+      if (!response.ok) throw new Error(t("loginError"));
 
       const next = new URLSearchParams(window.location.search).get("next");
       window.location.href =

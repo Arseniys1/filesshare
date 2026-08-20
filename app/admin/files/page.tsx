@@ -107,7 +107,7 @@ export default function AdminFilesPage() {
     try {
       const response = await fetch(`/api/admin/files?${params.toString()}`);
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || t("filesLoadError"));
+      if (!response.ok) throw new Error(t("filesLoadError"));
       setFiles(data.files);
       setPagination({
         page: data.page,
@@ -151,8 +151,7 @@ export default function AdminFilesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: file.token, action }),
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || t("fileUpdateError"));
+      if (!response.ok) throw new Error(t("fileUpdateError"));
       setSuccess(action === "revoke" ? t("linkRevoked") : t("linkRestored"));
       await loadFiles();
     } catch (reason) {
@@ -172,8 +171,7 @@ export default function AdminFilesPage() {
         `/api/admin/files?token=${encodeURIComponent(file.token)}`,
         { method: "DELETE" },
       );
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || t("fileDeleteError"));
+      if (!response.ok) throw new Error(t("fileDeleteError"));
       setSuccess(t("fileDeleted"));
       await loadFiles();
     } catch (reason) {

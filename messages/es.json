@@ -58,6 +58,7 @@
     "sendLink": "Enviar enlace",
     "sending": "Enviando...",
     "sendError": "No se pudo enviar la solicitud. Inténtalo de nuevo.",
+    "forgotSuccess": "Si existe una cuenta con este email, se ha enviado un enlace para restablecer la contraseña.",
     "devLink": "Enlace de desarrollo:",
     "openReset": "abrir recuperación",
     "backToLogin": "Volver al inicio de sesión",

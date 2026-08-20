@@ -716,11 +716,17 @@ function createErrorExample(translate: (value: string) => string): string {
 export default async function ApiDocsPage() {
   const t = await getTranslations("docs");
   const messages = await getMessages();
-  const textMessages =
-    (messages.docs as { text?: Record<string, string> }).text ?? {};
-  const translate = (value: string) => textMessages[value] ?? value;
+  const textEntries = Object.values(
+    (messages.docs as {
+      text?: Record<string, { source: string; value: string }>;
+    }).text ?? {},
+  );
+  const textMessages = new Map(
+    textEntries.map(({ source, value }) => [source, value]),
+  );
+  const translate = (value: string) => textMessages.get(value) ?? value;
   const translateBody = (value: string) =>
-    Object.entries(textMessages).reduce(
+    Array.from(textMessages.entries()).reduce(
       (result, [source, target]) => result.replaceAll(source, target),
       value,
     );

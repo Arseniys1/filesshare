@@ -38,95 +38,365 @@
   "e2eeFragment": "Después de cargar, añade la clave al fragmento del enlace después del símbolo",
   "fragmentNote": "El fragmento no se envía al servidor en una solicitud HTTP.",
   "text": {
-    "API-ключ из профиля пользователя. Cookie-авторизация не используется.": "Clave API del perfil del usuario. No se usa autenticación mediante cookies.",
-    "Срок действия ссылки. По умолчанию never.": "Caducidad del enlace. El valor predeterminado es never.",
-    "Пароль для скачивания, максимум 1024 символа.": "Contraseña de descarga, hasta 1024 caracteres.",
-    "Максимальное число скачиваний: от 1 до 1 000 000.": "Número máximo de descargas: de 1 a 1.000.000.",
-    "Номер страницы, начиная с 1. По умолчанию 1.": "Número de página desde 1. El valor predeterminado es 1.",
-    "Размер страницы от 1 до 100. По умолчанию 20.": "Tamaño de página de 1 a 100. El valor predeterminado es 20.",
-    "Текущий пользователь": "Usuario actual",
-    "Создать группу файлов": "Crear un grupo de archivos",
-    "Загрузить файл multipart": "Cargar un archivo multipart",
-    "Файл для загрузки.": "Archivo que se va a cargar.",
-    "Токен существующей группы файлов.": "Token de un grupo de archivos existente.",
-    "Режим шифрования содержимого. Для E2EE используйте e2ee-v1; ключ добавляется в fragment ссылки после #.": "Modo de cifrado del contenido. Para E2EE usa e2ee-v1; la clave se añade al fragmento del enlace después de #.",
-    "Размер исходного файла в байтах; нужен для E2EE.": "Tamaño del archivo original en bytes; necesario para E2EE.",
-    "Создать resumable-сессию": "Crear una sesión reanudable",
-    "Имя файла, максимум 255 символов.": "Nombre del archivo, hasta 255 caracteres.",
-    "MIME-тип файла, максимум 255 символов. По умолчанию application/octet-stream.": "Tipo MIME del archivo, hasta 255 caracteres. El valor predeterminado es application/octet-stream.",
-    "Размер передаваемого потока в байтах.": "Tamaño del flujo transferido en bytes.",
-    "Размер исходного файла в байтах; обязателен для E2EE.": "Tamaño del archivo original en bytes; obligatorio para E2EE.",
-    "Итоговая SHA-256 контрольная сумма файла.": "Suma de comprobación SHA-256 final del archivo.",
-    "Режим шифрования содержимого. Для E2EE ключ добавляется в fragment ссылки после #.": "Modo de cifrado del contenido. Para E2EE la clave se añade al fragmento del enlace después de #.",
-    "Получить состояние resumable-сессии": "Obtener el estado de la sesión reanudable",
-    "Идентификатор upload-сессии.": "Identificador de la sesión de carga.",
-    "Отменить resumable-сессию": "Cancelar la sesión reanudable",
-    "Загрузить часть файла": "Cargar una parte del archivo",
-    "Индекс части, начиная с 0.": "Índice de la parte desde 0.",
-    "SHA-256 именно этой бинарной части: 64 hex-символа в нижнем регистре.": "SHA-256 de esta parte binaria exacta: 64 caracteres hexadecimales en minúsculas.",
-    "Содержимое части файла. Обычный размер части — 4 MiB.": "Contenido de la parte del archivo. El tamaño habitual es 4 MiB.",
-    "Завершить загрузку": "Finalizar la carga",
-    "Итоговая SHA-256 контрольная сумма всего файла.": "Suma de comprobación SHA-256 final de todo el archivo.",
-    "Список своих передач": "Listar tus transferencias",
-    "Поиск по названию передачи.": "Buscar por nombre de transferencia.",
-    "Фильтр по статусу.": "Filtrar por estado.",
-    "Фильтр по типу передачи.": "Filtrar por tipo de transferencia.",
-    "Сортировка. По умолчанию created.": "Ordenación. El valor predeterminado es created.",
-    "Получить детали передачи": "Obtener los detalles de la transferencia",
-    "Токен передачи из shareUrl.": "Token de transferencia de shareUrl.",
-    "Изменить настройки передачи": "Actualizar la configuración de la transferencia",
-    "Новый срок действия или keep, чтобы оставить текущий.": "Nueva caducidad o keep para conservar el valor actual.",
-    "Точная дата окончания; null снимает дату.": "Fecha exacta de caducidad; null elimina la fecha.",
-    "Новый пароль или null, чтобы убрать пароль.": "Nueva contraseña o null para eliminarla.",
-    "Новый лимит скачиваний или null, чтобы убрать лимит.": "Nuevo límite de descargas o null para eliminarlo.",
-    "Удалить передачу из FileShare и Telegram": "Eliminar la transferencia de FileShare y Telegram",
-    "Отозвать передачу": "Revocar la transferencia",
-    "Восстановить передачу": "Restaurar la transferencia",
-    "Получить статистику пользователя": "Obtener las estadísticas del usuario",
-    "Получить настройки уведомлений": "Obtener la configuración de notificaciones",
-    "Изменить настройки уведомлений": "Actualizar la configuración de notificaciones",
-    "Включить уведомления по email.": "Activar las notificaciones por email.",
-    "Уведомлять о каждом скачивании.": "Avisar de cada descarga.",
-    "Включить сводные уведомления.": "Activar las notificaciones resumidas.",
-    "За сколько дней предупреждать об окончании ссылки.": "Cuántos días antes de la caducidad del enlace enviar el aviso.",
-    "API-ключ отсутствует или недействителен": "La clave API falta o no es válida",
-    "Пользователь заблокирован": "El usuario está bloqueado",
-    "Данные текущего пользователя": "Datos del usuario actual",
-    "Группа создана": "Grupo creado",
-    "Некорректные параметры или превышен лимит скачиваний": "Parámetros no válidos o límite de descargas superado",
-    "Превышен лимит активных ссылок": "Límite de enlaces activos superado",
-    "Файл загружен": "Archivo cargado",
-    "Ошибка валидации загрузки": "Error de validación de la carga",
-    "Сработал rate limit загрузок": "Se alcanzó el límite de carga",
-    "Resumable-сессия создана": "Sesión reanudable creada",
-    "Некорректные параметры файла, checksum или E2EE-размер": "Parámetros de archivo, checksum o tamaño E2EE no válidos",
-    "Превышен лимит параллельных загрузок или активных ссылок": "Límite de cargas paralelas o enlaces activos superado",
-    "Состояние сессии и загруженные части": "Estado de la sesión y partes cargadas",
-    "Сессия не найдена или принадлежит другому пользователю": "La sesión no existe o pertenece a otro usuario",
-    "Сессия отменена": "Sesión cancelada",
-    "Сессия не найдена": "Sesión no encontrada",
-    "Часть принята или уже была загружена": "Parte aceptada o ya cargada",
-    "Некорректный индекс, размер, тело или checksum": "Índice, tamaño, cuerpo o checksum no válidos",
-    "Сессия недоступна": "Sesión no disponible",
-    "Checksum части не совпадает с телом": "El checksum de la parte no coincide con el cuerpo",
-    "Контрольная сумма части не совпадает": "La suma de comprobación de la parte no coincide",
-    "Загрузка завершена; при повторном вызове возвращается alreadyCompleted": "Carga completada; las llamadas repetidas devuelven alreadyCompleted",
-    "Не все части загружены или сессия уже обрабатывается": "No se han cargado todas las partes o la sesión ya se está procesando",
-    "Не удалось собрать или сохранить файл": "No se pudo ensamblar o guardar el archivo",
-    "Пагинированный список собственных передач": "Lista paginada de tus transferencias",
-    "Детали передачи и файлы": "Detalles de la transferencia y archivos",
-    "Передача не найдена или не принадлежит пользователю": "La transferencia no existe o no pertenece al usuario",
-    "Настройки передачи обновлены": "Configuración de transferencia actualizada",
-    "Некорректные данные или нет изменений": "Datos no válidos o sin cambios",
-    "Передача не найдена": "Transferencia no encontrada",
-    "Передача удалена из FileShare и Telegram": "Transferencia eliminada de FileShare y Telegram",
-    "Не удалось удалить сообщения из Telegram": "No se pudieron eliminar los mensajes de Telegram",
-    "Передача отозвана": "Transferencia revocada",
-    "Передача восстановлена": "Transferencia restaurada",
-    "Статистика пользователя": "Estadísticas del usuario",
-    "Текущие настройки уведомлений": "Configuración actual de notificaciones",
-    "Настройки уведомлений обновлены": "Configuración de notificaciones actualizada",
-    "Некорректный период предупреждения или JSON": "Periodo de aviso o JSON no válido",
-    "Недействительный API-ключ": "Clave API no válida"
+    "text0": {
+      "source": "API-ключ из профиля пользователя. Cookie-авторизация не используется.",
+      "value": "Clave API del perfil del usuario. No se usa autenticación mediante cookies."
+    },
+    "text1": {
+      "source": "Срок действия ссылки. По умолчанию never.",
+      "value": "Caducidad del enlace. El valor predeterminado es never."
+    },
+    "text2": {
+      "source": "Пароль для скачивания, максимум 1024 символа.",
+      "value": "Contraseña de descarga, hasta 1024 caracteres."
+    },
+    "text3": {
+      "source": "Максимальное число скачиваний: от 1 до 1 000 000.",
+      "value": "Número máximo de descargas: de 1 a 1.000.000."
+    },
+    "text4": {
+      "source": "Номер страницы, начиная с 1. По умолчанию 1.",
+      "value": "Número de página desde 1. El valor predeterminado es 1."
+    },
+    "text5": {
+      "source": "Размер страницы от 1 до 100. По умолчанию 20.",
+      "value": "Tamaño de página de 1 a 100. El valor predeterminado es 20."
+    },
+    "text6": {
+      "source": "Текущий пользователь",
+      "value": "Usuario actual"
+    },
+    "text7": {
+      "source": "Создать группу файлов",
+      "value": "Crear un grupo de archivos"
+    },
+    "text8": {
+      "source": "Загрузить файл multipart",
+      "value": "Cargar un archivo multipart"
+    },
+    "text9": {
+      "source": "Файл для загрузки.",
+      "value": "Archivo que se va a cargar."
+    },
+    "text10": {
+      "source": "Токен существующей группы файлов.",
+      "value": "Token de un grupo de archivos existente."
+    },
+    "text11": {
+      "source": "Режим шифрования содержимого. Для E2EE используйте e2ee-v1; ключ добавляется в fragment ссылки после #.",
+      "value": "Modo de cifrado del contenido. Para E2EE usa e2ee-v1; la clave se añade al fragmento del enlace después de #."
+    },
+    "text12": {
+      "source": "Размер исходного файла в байтах; нужен для E2EE.",
+      "value": "Tamaño del archivo original en bytes; necesario para E2EE."
+    },
+    "text13": {
+      "source": "Создать resumable-сессию",
+      "value": "Crear una sesión reanudable"
+    },
+    "text14": {
+      "source": "Имя файла, максимум 255 символов.",
+      "value": "Nombre del archivo, hasta 255 caracteres."
+    },
+    "text15": {
+      "source": "MIME-тип файла, максимум 255 символов. По умолчанию application/octet-stream.",
+      "value": "Tipo MIME del archivo, hasta 255 caracteres. El valor predeterminado es application/octet-stream."
+    },
+    "text16": {
+      "source": "Размер передаваемого потока в байтах.",
+      "value": "Tamaño del flujo transferido en bytes."
+    },
+    "text17": {
+      "source": "Размер исходного файла в байтах; обязателен для E2EE.",
+      "value": "Tamaño del archivo original en bytes; obligatorio para E2EE."
+    },
+    "text18": {
+      "source": "Итоговая SHA-256 контрольная сумма файла.",
+      "value": "Suma de comprobación SHA-256 final del archivo."
+    },
+    "text19": {
+      "source": "Режим шифрования содержимого. Для E2EE ключ добавляется в fragment ссылки после #.",
+      "value": "Modo de cifrado del contenido. Para E2EE la clave se añade al fragmento del enlace después de #."
+    },
+    "text20": {
+      "source": "Получить состояние resumable-сессии",
+      "value": "Obtener el estado de la sesión reanudable"
+    },
+    "text21": {
+      "source": "Идентификатор upload-сессии.",
+      "value": "Identificador de la sesión de carga."
+    },
+    "text22": {
+      "source": "Отменить resumable-сессию",
+      "value": "Cancelar la sesión reanudable"
+    },
+    "text23": {
+      "source": "Загрузить часть файла",
+      "value": "Cargar una parte del archivo"
+    },
+    "text24": {
+      "source": "Индекс части, начиная с 0.",
+      "value": "Índice de la parte desde 0."
+    },
+    "text25": {
+      "source": "SHA-256 именно этой бинарной части: 64 hex-символа в нижнем регистре.",
+      "value": "SHA-256 de esta parte binaria exacta: 64 caracteres hexadecimales en minúsculas."
+    },
+    "text26": {
+      "source": "Содержимое части файла. Обычный размер части — 4 MiB.",
+      "value": "Contenido de la parte del archivo. El tamaño habitual es 4 MiB."
+    },
+    "text27": {
+      "source": "Завершить загрузку",
+      "value": "Finalizar la carga"
+    },
+    "text28": {
+      "source": "Итоговая SHA-256 контрольная сумма всего файла.",
+      "value": "Suma de comprobación SHA-256 final de todo el archivo."
+    },
+    "text29": {
+      "source": "Список своих передач",
+      "value": "Listar tus transferencias"
+    },
+    "text30": {
+      "source": "Поиск по названию передачи.",
+      "value": "Buscar por nombre de transferencia."
+    },
+    "text31": {
+      "source": "Фильтр по статусу.",
+      "value": "Filtrar por estado."
+    },
+    "text32": {
+      "source": "Фильтр по типу передачи.",
+      "value": "Filtrar por tipo de transferencia."
+    },
+    "text33": {
+      "source": "Сортировка. По умолчанию created.",
+      "value": "Ordenación. El valor predeterminado es created."
+    },
+    "text34": {
+      "source": "Получить детали передачи",
+      "value": "Obtener los detalles de la transferencia"
+    },
+    "text35": {
+      "source": "Токен передачи из shareUrl.",
+      "value": "Token de transferencia de shareUrl."
+    },
+    "text36": {
+      "source": "Изменить настройки передачи",
+      "value": "Actualizar la configuración de la transferencia"
+    },
+    "text37": {
+      "source": "Новый срок действия или keep, чтобы оставить текущий.",
+      "value": "Nueva caducidad o keep para conservar el valor actual."
+    },
+    "text38": {
+      "source": "Точная дата окончания; null снимает дату.",
+      "value": "Fecha exacta de caducidad; null elimina la fecha."
+    },
+    "text39": {
+      "source": "Новый пароль или null, чтобы убрать пароль.",
+      "value": "Nueva contraseña o null para eliminarla."
+    },
+    "text40": {
+      "source": "Новый лимит скачиваний или null, чтобы убрать лимит.",
+      "value": "Nuevo límite de descargas o null para eliminarlo."
+    },
+    "text41": {
+      "source": "Удалить передачу из FileShare и Telegram",
+      "value": "Eliminar la transferencia de FileShare y Telegram"
+    },
+    "text42": {
+      "source": "Отозвать передачу",
+      "value": "Revocar la transferencia"
+    },
+    "text43": {
+      "source": "Восстановить передачу",
+      "value": "Restaurar la transferencia"
+    },
+    "text44": {
+      "source": "Получить статистику пользователя",
+      "value": "Obtener las estadísticas del usuario"
+    },
+    "text45": {
+      "source": "Получить настройки уведомлений",
+      "value": "Obtener la configuración de notificaciones"
+    },
+    "text46": {
+      "source": "Изменить настройки уведомлений",
+      "value": "Actualizar la configuración de notificaciones"
+    },
+    "text47": {
+      "source": "Включить уведомления по email.",
+      "value": "Activar las notificaciones por email."
+    },
+    "text48": {
+      "source": "Уведомлять о каждом скачивании.",
+      "value": "Avisar de cada descarga."
+    },
+    "text49": {
+      "source": "Включить сводные уведомления.",
+      "value": "Activar las notificaciones resumidas."
+    },
+    "text50": {
+      "source": "За сколько дней предупреждать об окончании ссылки.",
+      "value": "Cuántos días antes de la caducidad del enlace enviar el aviso."
+    },
+    "text51": {
+      "source": "API-ключ отсутствует или недействителен",
+      "value": "La clave API falta o no es válida"
+    },
+    "text52": {
+      "source": "Пользователь заблокирован",
+      "value": "El usuario está bloqueado"
+    },
+    "text53": {
+      "source": "Данные текущего пользователя",
+      "value": "Datos del usuario actual"
+    },
+    "text54": {
+      "source": "Группа создана",
+      "value": "Grupo creado"
+    },
+    "text55": {
+      "source": "Некорректные параметры или превышен лимит скачиваний",
+      "value": "Parámetros no válidos o límite de descargas superado"
+    },
+    "text56": {
+      "source": "Превышен лимит активных ссылок",
+      "value": "Límite de enlaces activos superado"
+    },
+    "text57": {
+      "source": "Файл загружен",
+      "value": "Archivo cargado"
+    },
+    "text58": {
+      "source": "Ошибка валидации загрузки",
+      "value": "Error de validación de la carga"
+    },
+    "text59": {
+      "source": "Сработал rate limit загрузок",
+      "value": "Se alcanzó el límite de carga"
+    },
+    "text60": {
+      "source": "Resumable-сессия создана",
+      "value": "Sesión reanudable creada"
+    },
+    "text61": {
+      "source": "Некорректные параметры файла, checksum или E2EE-размер",
+      "value": "Parámetros de archivo, checksum o tamaño E2EE no válidos"
+    },
+    "text62": {
+      "source": "Превышен лимит параллельных загрузок или активных ссылок",
+      "value": "Límite de cargas paralelas o enlaces activos superado"
+    },
+    "text63": {
+      "source": "Состояние сессии и загруженные части",
+      "value": "Estado de la sesión y partes cargadas"
+    },
+    "text64": {
+      "source": "Сессия не найдена или принадлежит другому пользователю",
+      "value": "La sesión no existe o pertenece a otro usuario"
+    },
+    "text65": {
+      "source": "Сессия отменена",
+      "value": "Sesión cancelada"
+    },
+    "text66": {
+      "source": "Сессия не найдена",
+      "value": "Sesión no encontrada"
+    },
+    "text67": {
+      "source": "Часть принята или уже была загружена",
+      "value": "Parte aceptada o ya cargada"
+    },
+    "text68": {
+      "source": "Некорректный индекс, размер, тело или checksum",
+      "value": "Índice, tamaño, cuerpo o checksum no válidos"
+    },
+    "text69": {
+      "source": "Сессия недоступна",
+      "value": "Sesión no disponible"
+    },
+    "text70": {
+      "source": "Checksum части не совпадает с телом",
+      "value": "El checksum de la parte no coincide con el cuerpo"
+    },
+    "text71": {
+      "source": "Контрольная сумма части не совпадает",
+      "value": "La suma de comprobación de la parte no coincide"
+    },
+    "text72": {
+      "source": "Загрузка завершена; при повторном вызове возвращается alreadyCompleted",
+      "value": "Carga completada; las llamadas repetidas devuelven alreadyCompleted"
+    },
+    "text73": {
+      "source": "Не все части загружены или сессия уже обрабатывается",
+      "value": "No se han cargado todas las partes o la sesión ya se está procesando"
+    },
+    "text74": {
+      "source": "Не удалось собрать или сохранить файл",
+      "value": "No se pudo ensamblar o guardar el archivo"
+    },
+    "text75": {
+      "source": "Пагинированный список собственных передач",
+      "value": "Lista paginada de tus transferencias"
+    },
+    "text76": {
+      "source": "Детали передачи и файлы",
+      "value": "Detalles de la transferencia y archivos"
+    },
+    "text77": {
+      "source": "Передача не найдена или не принадлежит пользователю",
+      "value": "La transferencia no existe o no pertenece al usuario"
+    },
+    "text78": {
+      "source": "Настройки передачи обновлены",
+      "value": "Configuración de transferencia actualizada"
+    },
+    "text79": {
+      "source": "Некорректные данные или нет изменений",
+      "value": "Datos no válidos o sin cambios"
+    },
+    "text80": {
+      "source": "Передача не найдена",
+      "value": "Transferencia no encontrada"
+    },
+    "text81": {
+      "source": "Передача удалена из FileShare и Telegram",
+      "value": "Transferencia eliminada de FileShare y Telegram"
+    },
+    "text82": {
+      "source": "Не удалось удалить сообщения из Telegram",
+      "value": "No se pudieron eliminar los mensajes de Telegram"
+    },
+    "text83": {
+      "source": "Передача отозвана",
+      "value": "Transferencia revocada"
+    },
+    "text84": {
+      "source": "Передача восстановлена",
+      "value": "Transferencia restaurada"
+    },
+    "text85": {
+      "source": "Статистика пользователя",
+      "value": "Estadísticas del usuario"
+    },
+    "text86": {
+      "source": "Текущие настройки уведомлений",
+      "value": "Configuración actual de notificaciones"
+    },
+    "text87": {
+      "source": "Настройки уведомлений обновлены",
+      "value": "Configuración de notificaciones actualizada"
+    },
+    "text88": {
+      "source": "Некорректный период предупреждения или JSON",
+      "value": "Periodo de aviso o JSON no válido"
+    },
+    "text89": {
+      "source": "Недействительный API-ключ",
+      "value": "Clave API no válida"
+    }
   }
 }

@@ -1,35 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import UserAvatar from "@/components/UserAvatar";
-
-interface AuthUser {
-  email: string;
-  role: "user" | "admin";
-  avatarSeed: string | null;
-}
+import { useAuth } from "@/components/AuthProvider";
 
 export default function AuthNav() {
   const t = useTranslations("nav");
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const handleAvatarUpdate = (event: Event) => {
-      const user = (event as CustomEvent<AuthUser>).detail;
-      if (user) setUser(user);
-    };
-
-    window.addEventListener("user-avatar-updated", handleAvatarUpdate);
-    fetch("/api/auth/me")
-      .then((response) => response.json())
-      .then((data: { user: AuthUser | null }) => setUser(data.user))
-      .catch(() => setUser(null));
-
-    return () => window.removeEventListener("user-avatar-updated", handleAvatarUpdate);
-  }, []);
 
   if (!user) {
     return (

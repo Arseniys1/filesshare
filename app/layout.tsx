@@ -5,6 +5,7 @@ import AuthNav from "@/components/AuthNav";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import Telemetry from "@/components/Telemetry";
+import { AuthProvider } from "@/components/AuthProvider";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 
@@ -47,37 +48,39 @@ export default async function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <div className="min-h-screen bg-grid bg-glow">
-            <header className="site-header fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
-              <div className="mx-auto flex min-h-16 max-w-6xl items-center gap-2 overflow-visible px-3 py-2 sm:px-4">
-                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-                  <Link href="/" className="group flex shrink-0 items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center text-white font-bold text-sm group-hover:scale-110 transition-transform">
-                    FS
+          <AuthProvider>
+            <div className="min-h-screen bg-grid bg-glow">
+              <header className="site-header fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
+                <div className="mx-auto flex min-h-16 max-w-6xl items-center gap-2 overflow-visible px-3 py-2 sm:px-4">
+                  <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                    <Link href="/" className="group flex shrink-0 items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center text-white font-bold text-sm group-hover:scale-110 transition-transform">
+                        FS
+                      </div>
+                      <span className="hidden font-semibold text-lg sm:inline">
+                        File<span className="gradient-text">Share</span>
+                      </span>
+                    </Link>
+                    <Link
+                      href="/"
+                      className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-accent-light transition-colors hover:bg-white/5 hover:text-white sm:px-3"
+                    >
+                      {navT("upload")}
+                    </Link>
                   </div>
-                  <span className="hidden font-semibold text-lg sm:inline">
-                    File<span className="gradient-text">Share</span>
-                  </span>
-                  </Link>
-                  <Link
-                    href="/"
-                    className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-accent-light transition-colors hover:bg-white/5 hover:text-white sm:px-3"
-                  >
-                    {navT("upload")}
-                  </Link>
+                  <nav className="relative flex min-w-0 flex-1 items-center justify-end">
+                    <AuthNav />
+                  </nav>
                 </div>
-                <nav className="relative flex min-w-0 flex-1 items-center justify-end">
-                  <AuthNav />
-                </nav>
+              </header>
+              <main className="pt-16">{children}</main>
+              <div className="fixed bottom-5 right-5 z-[60] flex flex-col items-center gap-2 sm:bottom-6 sm:right-6">
+                <LanguageSwitcher />
+                <ThemeToggle />
               </div>
-            </header>
-            <main className="pt-16">{children}</main>
-            <div className="fixed bottom-5 right-5 z-[60] flex flex-col items-center gap-2 sm:bottom-6 sm:right-6">
-              <LanguageSwitcher />
-              <ThemeToggle />
+              <Telemetry />
             </div>
-            <Telemetry />
-          </div>
+          </AuthProvider>
         </NextIntlClientProvider>
       </body>
     </html>

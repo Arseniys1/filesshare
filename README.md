@@ -68,6 +68,10 @@ npm run dev
 
 ## API
 
+Документация пользовательского API с Bearer API-ключами: [`docs/api.md`](docs/api.md). OpenAPI-спецификация: [`docs/openapi.yaml`](docs/openapi.yaml).
+
+Основной пользовательский API доступен по `/api/v1` и не предоставляет административных операций.
+
 | Метод | Путь | Назначение |
 | --- | --- | --- |
 | `POST` | `/api/upload` | Потоковая загрузка multipart-файла |

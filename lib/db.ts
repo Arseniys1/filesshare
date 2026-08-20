@@ -342,16 +342,6 @@ const migrations: Migration[] = [
       if (!hasColumn("file_groups", "pin_hash")) db.exec("ALTER TABLE file_groups ADD COLUMN pin_hash TEXT");
       if (!hasColumn("file_groups", "one_time")) db.exec("ALTER TABLE file_groups ADD COLUMN one_time INTEGER NOT NULL DEFAULT 0");
       if (!hasColumn("file_groups", "used_at")) db.exec("ALTER TABLE file_groups ADD COLUMN used_at TEXT");
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS short_links (
-          code TEXT PRIMARY KEY,
-          target_token TEXT NOT NULL UNIQUE,
-          owner_user_id INTEGER,
-          created_at TEXT NOT NULL DEFAULT (datetime('now')),
-          FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE SET NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_short_links_owner ON short_links(owner_user_id);
-      `);
     },
   },
   {
@@ -488,6 +478,34 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    id: "021_api_keys",
+    apply: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS api_keys (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          key_prefix TEXT NOT NULL,
+          key_hash TEXT NOT NULL UNIQUE,
+          last_used_at TEXT,
+          revoked_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_api_keys_user_created
+          ON api_keys(user_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_api_keys_hash
+          ON api_keys(key_hash);
+      `);
+    },
+  },
+  {
+    id: "022_remove_short_links",
+    apply: () => {
+      db.exec("DROP TABLE IF EXISTS short_links");
+    },
+  },
 ];
 
 db.exec("BEGIN IMMEDIATE");
@@ -557,6 +575,17 @@ export interface AuthUserRecord {
   email: string;
   role: UserRole;
   blocked_at: string | null;
+  created_at: string;
+}
+
+export interface ApiKeyRecord {
+  id: number;
+  user_id: number;
+  name: string;
+  key_prefix: string;
+  key_hash: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
   created_at: string;
 }
 
@@ -792,6 +821,78 @@ export function getUserById(id: number): UserRecord | undefined {
   return db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRecord | undefined;
 }
 
+export function countActiveApiKeys(userId: number): number {
+  return (db.prepare(
+    "SELECT COUNT(*) AS count FROM api_keys WHERE user_id = ? AND revoked_at IS NULL"
+  ).get(userId) as { count: number }).count;
+}
+
+export function createApiKey(data: {
+  userId: number;
+  name: string;
+  keyPrefix: string;
+  keyHash: string;
+}): ApiKeyRecord {
+  const result = db.prepare(
+    `INSERT INTO api_keys (user_id, name, key_prefix, key_hash)
+     VALUES (?, ?, ?, ?)`
+  ).run(data.userId, data.name, data.keyPrefix, data.keyHash);
+  return db.prepare("SELECT * FROM api_keys WHERE id = ?")
+    .get(result.lastInsertRowid) as ApiKeyRecord;
+}
+
+export function getApiKeyByHash(keyHash: string): ApiKeyRecord | undefined {
+  return db.prepare(
+    `SELECT * FROM api_keys
+     WHERE key_hash = ? AND revoked_at IS NULL`
+  ).get(keyHash) as ApiKeyRecord | undefined;
+}
+
+export function listApiKeys(userId: number): ApiKeyRecord[] {
+  return db.prepare(
+    `SELECT * FROM api_keys
+     WHERE user_id = ?
+     ORDER BY created_at DESC, id DESC`
+  ).all(userId) as ApiKeyRecord[];
+}
+
+export function listActiveApiKeysPage(userId: number, page = 1, pageSize = 10): {
+  items: ApiKeyRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+} {
+  const normalizedPageSize = Math.min(Math.max(Math.floor(pageSize) || 10, 1), 50);
+  const total = (db.prepare(
+    `SELECT COUNT(*) AS count FROM api_keys
+     WHERE user_id = ? AND revoked_at IS NULL`
+  ).get(userId) as { count: number }).count;
+  const totalPages = Math.max(Math.ceil(total / normalizedPageSize), 1);
+  const normalizedPage = Math.min(Math.max(Math.floor(page) || 1, 1), totalPages);
+  const offset = (normalizedPage - 1) * normalizedPageSize;
+  const items = db.prepare(
+    `SELECT * FROM api_keys
+     WHERE user_id = ? AND revoked_at IS NULL
+     ORDER BY created_at DESC, id DESC
+     LIMIT ? OFFSET ?`
+  ).all(userId, normalizedPageSize, offset) as ApiKeyRecord[];
+  return { items, total, page: normalizedPage, pageSize: normalizedPageSize, totalPages };
+}
+
+export function touchApiKey(id: number): void {
+  db.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ? AND revoked_at IS NULL")
+    .run(new Date().toISOString(), id);
+}
+
+export function revokeApiKey(userId: number, id: number): boolean {
+  const result = db.prepare(
+    `UPDATE api_keys SET revoked_at = COALESCE(revoked_at, ?)
+     WHERE id = ? AND user_id = ?`
+  ).run(new Date().toISOString(), id, userId);
+  return result.changes > 0;
+}
+
 export function getUserQuotaUsage(userId: number): { storageUsed: number; activeLinks: number } {
   const storageUsed = (db.prepare("SELECT COALESCE(SUM(size), 0) AS total FROM files WHERE owner_user_id = ?").get(userId) as { total: number }).total;
   const activeLinks = (db.prepare(
@@ -935,7 +1036,6 @@ export function deleteAdminFileRecords(token: string): FileWithAccount[] | undef
   if (!file) return undefined;
 
   db.transaction(() => {
-    db.prepare("DELETE FROM short_links WHERE target_token = ?").run(file.token);
     db.prepare("DELETE FROM transfer_recipients WHERE target_token = ?").run(file.token);
     db.prepare("DELETE FROM files WHERE id = ?").run(file.id);
     db.prepare("UPDATE storage_accounts SET files_count = MAX(files_count - 1, 0) WHERE id = ?").run(file.storage_account_id);
@@ -945,7 +1045,6 @@ export function deleteAdminFileRecords(token: string): FileWithAccount[] | undef
       if (!remaining) {
         const group = getFileGroupById(file.group_id);
         if (group) {
-          db.prepare("DELETE FROM short_links WHERE target_token = ?").run(group.token);
           db.prepare("DELETE FROM transfer_recipients WHERE target_token = ?").run(group.token);
         }
         db.prepare("DELETE FROM file_groups WHERE id = ?").run(file.group_id);
@@ -1329,30 +1428,6 @@ export function getFileByToken(token: string): FileWithAccount | undefined {
        WHERE f.token = ?`
     )
     .get(token) as FileWithAccount | undefined;
-}
-
-export function createShortLink(data: { code: string; targetToken: string; ownerUserId: number | null }): void {
-  db.prepare(
-    "INSERT INTO short_links (code, target_token, owner_user_id) VALUES (?, ?, ?)"
-  ).run(data.code, data.targetToken, data.ownerUserId);
-}
-
-export interface ShortLinkRecord {
-  code: string;
-  target_token: string;
-  owner_user_id: number | null;
-}
-
-export function getShortLink(code: string): ShortLinkRecord | undefined {
-  return db.prepare("SELECT * FROM short_links WHERE code = ?").get(code) as { code: string; target_token: string; owner_user_id: number | null } | undefined;
-}
-
-export function getShortLinkByTargetToken(targetToken: string): ShortLinkRecord | undefined {
-  return db.prepare("SELECT * FROM short_links WHERE target_token = ?").get(targetToken) as ShortLinkRecord | undefined;
-}
-
-export function deleteShortLink(targetToken: string): void {
-  db.prepare("DELETE FROM short_links WHERE target_token = ?").run(targetToken);
 }
 
 function transferCte(): string {

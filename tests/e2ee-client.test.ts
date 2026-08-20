@@ -6,6 +6,7 @@ import {
   createE2EEUpload,
   decryptE2EEToSink,
   downloadE2EEFile,
+  getE2EEEncryptedSize,
   readE2EEKeyFromHash,
   readE2EEKeysFromHash,
 } from "@/lib/e2ee-client";
@@ -42,6 +43,7 @@ describe("client-side E2EE", () => {
     const file = new File([original], "example.bin", { type: "application/octet-stream" });
     const encrypted = createE2EEUpload(file);
     const encryptedBytes = await readStream(encrypted.body);
+    expect(encryptedBytes.length).toBe(getE2EEEncryptedSize(original.length));
     const output: Uint8Array[] = [];
 
     await decryptE2EEToSink(

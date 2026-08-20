@@ -14,23 +14,21 @@ import {
   type UploadSessionRecord,
 } from "@/lib/db";
 import { computeExpiresAt, EXPIRY_OPTIONS } from "@/lib/utils";
-import { E2EE_CHUNK_SIZE, getE2EEHeaderSize } from "@/lib/e2ee-client";
+import { E2EE_CHUNK_SIZE, E2EE_FRAME_OVERHEAD, getE2EEHeaderSize } from "@/lib/e2ee-client";
 import type { NextRequest } from "next/server";
 
 export const UPLOAD_CHUNK_SIZE = 4 * 1024 * 1024;
-const E2EE_FRAME_OVERHEAD = 32;
-
 export function sessionCookieName(id: string): string {
   return `fs_upload_${id}`;
 }
 
-export function getAccessibleSession(request: NextRequest, id: string): UploadSessionRecord | undefined {
+export function getAccessibleSession(request: NextRequest, id: string, apiUserId?: number): UploadSessionRecord | undefined {
   const session = getUploadSession(id);
   if (!session) return undefined;
-  const sessionStatus = getCurrentUserStatus(request);
-  if (sessionStatus.blocked) return undefined;
-  const user = sessionStatus.user;
-  if (session.owner_user_id !== null) return user?.id === session.owner_user_id ? session : undefined;
+  const sessionStatus = apiUserId === undefined ? getCurrentUserStatus(request) : null;
+  if (sessionStatus?.blocked) return undefined;
+  const userId = apiUserId ?? sessionStatus?.user?.id;
+  if (session.owner_user_id !== null) return userId === session.owner_user_id ? session : undefined;
   const cookie = request.cookies.get(sessionCookieName(id))?.value;
   return cookie && cookie === session.anonymous_token ? session : undefined;
 }
@@ -56,12 +54,12 @@ export function parseSessionMaxDownloads(value: unknown): number | null {
   return parsed;
 }
 
-export function validateSessionGroup(request: NextRequest, groupToken: string | null): void {
+export function validateSessionGroup(request: NextRequest, groupToken: string | null, apiUserId?: number): void {
   if (!groupToken) return;
   const group = getFileGroupByToken(groupToken);
   if (!group || group.revoked_at) throw new Error("Группа файлов не найдена или отозвана");
-  const user = getCurrentUserStatus(request).user;
-  if (group.owner_user_id !== null && group.owner_user_id !== user?.id) throw new Error("Нет доступа к группе файлов");
+  const userId = apiUserId ?? getCurrentUserStatus(request).user?.id;
+  if (group.owner_user_id !== null && group.owner_user_id !== userId) throw new Error("Нет доступа к группе файлов");
 }
 
 export async function assembleSession(session: UploadSessionRecord, expectedChecksum?: string | null): Promise<{ filePath: string; size: number; checksum: string }> {

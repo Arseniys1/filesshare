@@ -22,6 +22,24 @@ test.describe("публичные страницы", () => {
       "href",
       "/register"
     );
+    await expect(page.getByRole("link", { name: "API" })).toHaveAttribute(
+      "href",
+      "/docs/api"
+    );
+  });
+
+  test("страница документации API доступна из шапки", async ({ page }) => {
+    await page.goto("/docs/api");
+
+    await expect(page.getByRole("heading", { name: "Документация API" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Параметры методов" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ответы" })).toHaveCount(17);
+    await expect(page.getByText("X-Chunk-SHA256", { exact: false })).toBeVisible();
+    await expect(page.getByText("expiryWarningDays", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Скачать OpenAPI YAML" })).toHaveAttribute(
+      "href",
+      "/api/docs/openapi"
+    );
   });
 
   test("главная страница позволяет настроить ссылку и тему оформления", async ({ page }) => {

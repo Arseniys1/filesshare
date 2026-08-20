@@ -28,14 +28,14 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 600;
 
-class UploadValidationError extends Error {
+export class UploadValidationError extends Error {
   constructor(message: string, public status = 400) {
     super(message);
     this.name = "UploadValidationError";
   }
 }
 
-interface ParsedUpload {
+export interface ParsedUpload {
   fileName: string;
   mimeType: string;
   size: number;
@@ -68,7 +68,7 @@ function parseMaxDownloads(value: string | undefined): number | null {
   return parsed;
 }
 
-async function parseMultipartUpload(
+export async function parseMultipartUpload(
   request: NextRequest,
   tempDir: string,
   maxSize: number

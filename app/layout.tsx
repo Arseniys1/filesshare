@@ -49,6 +49,12 @@ export default function RootLayout({
                 </span>
               </Link>
               <nav className="flex items-center gap-1 sm:gap-4">
+                <Link
+                  href="/docs/api"
+                  className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+                >
+                  API
+                </Link>
                 <AuthNav />
               </nav>
             </div>

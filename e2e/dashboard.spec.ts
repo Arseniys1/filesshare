@@ -103,6 +103,10 @@ test.describe("личный кабинет", () => {
 
     await page.goto("/dashboard");
     await expect(page.getByRole("heading", { name: "Личный кабинет" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "user@example.com" })).toHaveAttribute(
+      "href",
+      "/profile"
+    );
     await expect(page.getByText("report.pdf", { exact: true })).toBeVisible();
     await expect(page.getByText("Передач", { exact: true })).toBeVisible();
 

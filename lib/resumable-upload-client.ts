@@ -21,6 +21,7 @@ export interface ResumableUploadOptions {
 interface UploadSessionStatus {
   sessionId: string;
   status: string;
+  totalSize: number;
   chunkSize: number;
   totalChunks: number;
   uploadedParts: Array<{ index: number; size?: number; checksum: string }>;
@@ -104,21 +105,23 @@ export async function uploadFileResumable(file: File, options: ResumableUploadOp
   }
   if (session.status !== "active") throw new Error("Сессия загрузки недоступна для продолжения");
 
-  const uploaded = new Set(session.uploadedParts.map((part) => part.index));
+  const uploadedParts = new Map(session.uploadedParts.map((part) => [part.index, part]));
   let uploadedBytes = session.uploadedParts.reduce((total, part) => total + (part.size ?? Math.min(session.chunkSize, file.size - part.index * session.chunkSize)), 0);
   const checksum = new Sha256();
-  options.onProgress?.(uploadedBytes, file.size, uploaded.size, session.totalChunks);
+  options.onProgress?.(uploadedBytes, file.size, uploadedParts.size, session.totalChunks);
 
   for (let index = 0; index < session.totalChunks; index += 1) {
     const start = index * session.chunkSize;
     const chunk = new Uint8Array(await file.slice(start, Math.min(file.size, start + session.chunkSize)).arrayBuffer());
     checksum.update(chunk);
-    if (!uploaded.has(index)) {
+    const partChecksum = new Sha256().update(chunk).digest();
+    const existingPart = uploadedParts.get(index);
+    if (!existingPart || existingPart.size !== chunk.length || existingPart.checksum !== partChecksum) {
       await options.waitForResume?.();
-      await uploadPart(session.sessionId, index, chunk, new Sha256().update(chunk).digest());
-      uploadedBytes += chunk.length;
-      uploaded.add(index);
-      options.onProgress?.(uploadedBytes, file.size, uploaded.size, session.totalChunks);
+      await uploadPart(session.sessionId, index, chunk, partChecksum);
+      uploadedBytes += chunk.length - (existingPart?.size ?? 0);
+      uploadedParts.set(index, { index, size: chunk.length, checksum: partChecksum });
+      options.onProgress?.(uploadedBytes, file.size, uploadedParts.size, session.totalChunks);
     }
   }
 
@@ -155,11 +158,16 @@ export async function uploadE2EEFileResumable(file: File, options: ResumableUplo
   const key = storageKey(file, ":e2ee");
   let stored = readE2EESession(key);
   let session: UploadSessionStatus | null = stored ? await getSession(stored.sessionId) : null;
-  if (!session || (session.status !== "active" && session.status !== "completed")) {
+  const expectedEncryptedSize = getE2EEEncryptedSize(file.size);
+  if (session?.status === "completed" && session.result) {
+    removeStoredSession(key);
+    return { file: session.result as { shareUrl: string; [key: string]: unknown }, key: stored!.key };
+  }
+  if (!session || session.status !== "active" || session.totalSize !== expectedEncryptedSize) {
     const rawKey = crypto.getRandomValues(new Uint8Array(32));
     stored = { sessionId: "", key: encodeE2EEKey(rawKey) };
     session = await createSession(file, options, {
-      totalSize: getE2EEEncryptedSize(file.size),
+      totalSize: expectedEncryptedSize,
       originalSize: file.size,
       contentEncryption: "e2ee-v1",
     });
@@ -167,30 +175,28 @@ export async function uploadE2EEFileResumable(file: File, options: ResumableUplo
     writeStoredSession(key, JSON.stringify(stored));
   }
 
-  if (session.status === "completed" && session.result) {
-    removeStoredSession(key);
-    return { file: session.result as { shareUrl: string; [key: string]: unknown }, key: stored!.key };
-  }
   if (session.status !== "active" || !stored) throw new Error("E2EE-сессия загрузки недоступна для продолжения");
 
   const rawKey = decodeE2EEKey(stored.key);
-  const uploaded = new Set(session.uploadedParts.map((part) => part.index));
+  const uploadedParts = new Map(session.uploadedParts.map((part) => [part.index, part]));
   let uploadedBytes = session.uploadedParts.reduce((total, part) => {
     const plainSize = Math.min(E2EE_CHUNK_SIZE, Math.max(0, file.size - part.index * E2EE_CHUNK_SIZE));
     return total + plainSize;
   }, 0);
   const checksum = new Sha256();
-  options.onProgress?.(uploadedBytes, file.size, uploaded.size, session.totalChunks);
+  options.onProgress?.(uploadedBytes, file.size, uploadedParts.size, session.totalChunks);
 
   for (let index = 0; index < session.totalChunks; index += 1) {
     const encryptedChunk = await encryptE2EEChunk(file, rawKey, index);
     checksum.update(encryptedChunk);
-    if (!uploaded.has(index)) {
+    const partChecksum = new Sha256().update(encryptedChunk).digest();
+    const existingPart = uploadedParts.get(index);
+    if (!existingPart || existingPart.size !== encryptedChunk.length || existingPart.checksum !== partChecksum) {
       await options.waitForResume?.();
-      await uploadPart(session.sessionId, index, encryptedChunk, new Sha256().update(encryptedChunk).digest());
-      uploadedBytes += Math.min(E2EE_CHUNK_SIZE, file.size - index * E2EE_CHUNK_SIZE);
-      uploaded.add(index);
-      options.onProgress?.(uploadedBytes, file.size, uploaded.size, session.totalChunks);
+      await uploadPart(session.sessionId, index, encryptedChunk, partChecksum);
+      if (!existingPart) uploadedBytes += Math.min(E2EE_CHUNK_SIZE, file.size - index * E2EE_CHUNK_SIZE);
+      uploadedParts.set(index, { index, size: encryptedChunk.length, checksum: partChecksum });
+      options.onProgress?.(uploadedBytes, file.size, uploadedParts.size, session.totalChunks);
     }
   }
 

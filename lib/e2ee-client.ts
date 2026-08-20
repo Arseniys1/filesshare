@@ -5,6 +5,7 @@ export const E2EE_BUFFERED_FALLBACK_LIMIT = 512 * 1024 * 1024;
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
+export const E2EE_FRAME_OVERHEAD = 4 + IV_BYTES + TAG_BYTES;
 const MAX_HEADER_BYTES = 4096;
 const MAGIC = new TextEncoder().encode("FSE2EE1");
 
@@ -88,7 +89,7 @@ export function getE2EEEncryptedSize(originalSize: number): number {
   if (!Number.isSafeInteger(originalSize) || originalSize < 1) {
     throw new Error("Некорректный размер E2EE-файла");
   }
-  return getE2EEHeaderSize() + originalSize + Math.ceil(originalSize / E2EE_CHUNK_SIZE) * (IV_BYTES + TAG_BYTES);
+  return getE2EEHeaderSize() + originalSize + Math.ceil(originalSize / E2EE_CHUNK_SIZE) * E2EE_FRAME_OVERHEAD;
 }
 
 function takePending(

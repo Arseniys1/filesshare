@@ -1,0 +1,376 @@
+openapi: 3.1.0
+info:
+  title: FileShare User API
+  version: 1.0.0
+  description: API для управления пользовательскими файлами и передачами.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Account
+  - name: Uploads
+  - name: Transfers
+  - name: Settings
+paths:
+  /me:
+    get:
+      tags: [Account]
+      operationId: getMe
+      responses:
+        "200": { $ref: "#/components/responses/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /groups:
+    post:
+      tags: [Uploads]
+      operationId: createGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GroupCreateRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/Group" }
+        "400": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /uploads:
+    post:
+      tags: [Uploads]
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                expiry: { $ref: "#/components/schemas/Expiry" }
+                password: { type: string, maxLength: 1024 }
+                maxDownloads: { type: integer, minimum: 1, maximum: 1000000 }
+                groupToken: { type: string }
+                contentEncryption: { type: string, enum: [none, e2ee-v1] }
+                originalSize: { type: integer, minimum: 1 }
+      responses:
+        "200": { $ref: "#/components/responses/Upload" }
+        "400": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /upload-sessions:
+    post:
+      tags: [Uploads]
+      operationId: createUploadSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UploadSessionCreateRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/UploadSession" }
+        "400": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /upload-sessions/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/SessionId" }
+    get:
+      tags: [Uploads]
+      operationId: getUploadSession
+      responses:
+        "200": { $ref: "#/components/responses/UploadSessionStatus" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Uploads]
+      operationId: cancelUploadSession
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "404": { $ref: "#/components/responses/Error" }
+  /upload-sessions/{id}/parts/{index}:
+    parameters:
+      - { $ref: "#/components/parameters/SessionId" }
+      - name: index
+        in: path
+        required: true
+        schema: { type: integer, minimum: 0 }
+      - name: X-Chunk-SHA256
+        in: header
+        required: true
+        schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+    put:
+      tags: [Uploads]
+      operationId: uploadPart
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "200": { $ref: "#/components/responses/Part" }
+        "422": { $ref: "#/components/responses/Error" }
+  /upload-sessions/{id}/complete:
+    parameters:
+      - { $ref: "#/components/parameters/SessionId" }
+    post:
+      tags: [Uploads]
+      operationId: completeUploadSession
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                checksum: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+      responses:
+        "200": { $ref: "#/components/responses/Upload" }
+        "409": { $ref: "#/components/responses/Error" }
+  /transfers:
+    get:
+      tags: [Transfers]
+      operationId: listTransfers
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [active, expired, revoked, password, e2ee] } }
+        - { name: kind, in: query, schema: { type: string, enum: [file, group] } }
+        - { name: sort, in: query, schema: { type: string, enum: [created, size, downloads], default: created } }
+      responses:
+        "200":
+          description: Paginated transfers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total, page, pageSize, totalPages]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Transfer" } }
+                  total: { type: integer }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                  totalPages: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /transfers/{token}:
+    parameters:
+      - { $ref: "#/components/parameters/Token" }
+    get:
+      tags: [Transfers]
+      operationId: getTransfer
+      responses:
+        "200": { $ref: "#/components/responses/TransferDetails" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [Transfers]
+      operationId: updateTransfer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransferUpdateRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Transfers]
+      operationId: deleteTransfer
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "502": { $ref: "#/components/responses/Error" }
+  /transfers/{token}/revoke:
+    parameters:
+      - { $ref: "#/components/parameters/Token" }
+    post:
+      tags: [Transfers]
+      operationId: revokeTransfer
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+  /transfers/{token}/restore:
+    parameters:
+      - { $ref: "#/components/parameters/Token" }
+    post:
+      tags: [Transfers]
+      operationId: restoreTransfer
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+  /stats:
+    get:
+      tags: [Account]
+      operationId: getStats
+      responses:
+        "200":
+          description: User statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transfers: { type: integer }
+                  downloads: { type: integer }
+                  recentDownloads: { type: array, items: { type: object, additionalProperties: true } }
+  /notifications:
+    get:
+      tags: [Settings]
+      operationId: getNotifications
+      responses:
+        "200": { $ref: "#/components/responses/Notifications" }
+    patch:
+      tags: [Settings]
+      operationId: updateNotifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailEnabled: { type: boolean }
+                downloadNotifications: { type: boolean }
+                summaryNotifications: { type: boolean }
+                expiryWarningDays: { type: integer, minimum: 0, maximum: 30 }
+      responses:
+        "200": { $ref: "#/components/responses/Notifications" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API key
+  parameters:
+    SessionId: { name: id, in: path, required: true, schema: { type: string } }
+    Token: { name: token, in: path, required: true, schema: { type: string } }
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PageSize: { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+    Expiry: { type: string, enum: [1h, 24h, 7d, 30d, never], default: never }
+    GroupCreateRequest:
+      type: object
+      properties:
+        expiry: { $ref: "#/components/schemas/Expiry" }
+        password: { type: string, maxLength: 1024 }
+        maxDownloads: { type: integer, minimum: 1, maximum: 1000000 }
+    UploadSessionCreateRequest:
+      type: object
+      required: [fileName, totalSize]
+      properties:
+        fileName: { type: string, maxLength: 255 }
+        mimeType: { type: string, maxLength: 255 }
+        totalSize: { type: integer, minimum: 1 }
+        originalSize: { type: integer, minimum: 1 }
+        checksum: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+        expiry: { $ref: "#/components/schemas/Expiry" }
+        password: { type: string, maxLength: 1024 }
+        maxDownloads: { type: integer, minimum: 1, maximum: 1000000 }
+        groupToken: { type: string }
+        contentEncryption: { type: string, enum: [none, e2ee-v1] }
+    TransferUpdateRequest:
+      type: object
+      properties:
+        expiry: { type: string, enum: [keep, 1h, 24h, 7d, 30d, never] }
+        expiresAt: { type: [string, "null"], format: date-time }
+        password: { type: [string, "null"], maxLength: 1024 }
+        maxDownloads: { type: [integer, "null"], minimum: 1, maximum: 1000000 }
+    Transfer:
+      type: object
+      required: [kind, token, name, size, fileCount, shareUrl]
+      properties:
+        kind: { type: string, enum: [file, group] }
+        token: { type: string }
+        name: { type: string }
+        size: { type: integer }
+        fileCount: { type: integer }
+        expiresAt: { type: [string, "null"], format: date-time }
+        downloadCount: { type: integer }
+        maxDownloads: { type: [integer, "null"] }
+        hasPassword: { type: boolean }
+        storageEncrypted: { type: boolean }
+        contentEncryption: { type: string, enum: [none, e2ee-v1] }
+        createdAt: { type: string }
+        revoked: { type: boolean }
+        expired: { type: boolean }
+        shareUrl: { type: string, format: uri }
+        canRecreateLink: { type: boolean }
+    File:
+      allOf:
+        - $ref: "#/components/schemas/Transfer"
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid API key
+      headers:
+        WWW-Authenticate: { schema: { type: string } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Success:
+      description: Successful operation
+      content:
+        application/json:
+          schema: { type: object, additionalProperties: true }
+    Me:
+      description: Current user
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [id, email, createdAt]
+            properties:
+              id: { type: integer }
+              email: { type: string, format: email }
+              createdAt: { type: string }
+    Group:
+      description: Created group
+      content:
+        application/json:
+          schema: { type: object, required: [token, shareUrl], additionalProperties: true }
+    Upload:
+      description: Uploaded file
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [file]
+            properties:
+              file: { $ref: "#/components/schemas/File" }
+    UploadSession:
+      description: Created upload session
+      content:
+        application/json:
+          schema: { type: object, required: [sessionId, status, totalSize, chunkSize, totalChunks], additionalProperties: true }
+    UploadSessionStatus:
+      description: Upload session status
+      content:
+        application/json:
+          schema: { type: object, required: [sessionId, uploadedParts], additionalProperties: true }
+    Part:
+      description: Uploaded part
+      content:
+        application/json:
+          schema: { type: object, additionalProperties: true }
+    TransferDetails:
+      description: Transfer details
+      content:
+        application/json:
+          schema: { type: object, required: [kind, token, files], additionalProperties: true }
+    Notifications:
+      description: Notification settings
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [emailEnabled, downloadNotifications, summaryNotifications, expiryWarningDays]
+            properties:
+              emailEnabled: { type: boolean }
+              downloadNotifications: { type: boolean }
+              summaryNotifications: { type: boolean }
+              expiryWarningDays: { type: integer }

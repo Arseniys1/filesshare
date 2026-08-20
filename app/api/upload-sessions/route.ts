@@ -94,6 +94,8 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       sessionId: session.id,
+      status: session.status,
+      totalSize: session.total_size,
       chunkSize: session.chunk_size,
       totalChunks: session.total_chunks,
       uploadedParts: [],

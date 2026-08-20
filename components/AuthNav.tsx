@@ -53,9 +53,13 @@ export default function AuthNav() {
           Админ
         </Link>
       )}
-      <span className="hidden sm:inline text-sm text-gray-500 max-w-40 truncate">
+      <Link
+        href="/profile"
+        title="Профиль"
+        className="hidden sm:inline text-sm text-gray-500 max-w-40 truncate hover:text-white transition-colors"
+      >
         {user.email}
-      </span>
+      </Link>
       <button
         type="button"
         onClick={async () => {

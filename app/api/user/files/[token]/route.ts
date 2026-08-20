@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { nanoid } from "nanoid";
 import { getCurrentUser } from "@/lib/auth";
 import {
   deleteOwnedTransferRecords,
-  deleteShortLink,
   enqueueNotification,
   getOwnedTransferDetails,
-  getShortLinkByTargetToken,
   getUserById,
   getUserNotificationSettings,
   markFileDeletionFailed,
   markFileTelegramDeleted,
   setOwnedTransferRevoked,
-  createShortLink,
   updateOwnedTransfer,
 } from "@/lib/db";
 import { deleteTelegramMessage } from "@/lib/telegram";
@@ -147,28 +143,6 @@ export async function POST(
   if (!user) return NextResponse.json({ error: "Требуется вход" }, { status: 401 });
   const { token } = await params;
   const action = request.nextUrl.searchParams.get("action");
-  if (action === "short-link") {
-    try {
-      const shortLinkDetails = getOwnedTransferDetails(user.id, token);
-      if (!shortLinkDetails) return NextResponse.json({ error: "Передача не найдена" }, { status: 404 });
-      if (shortLinkDetails.files.some((file) => file.content_encryption === "e2ee-v1")) return NextResponse.json({ error: "Для E2EE-файла короткая ссылка без ключа невозможна" }, { status: 400 });
-      let shortLink = getShortLinkByTargetToken(token);
-      if (!shortLink) {
-        const code = nanoid(8);
-        try {
-          createShortLink({ code, targetToken: token, ownerUserId: user.id });
-          shortLink = { code, target_token: token, owner_user_id: user.id };
-        } catch (error) {
-          // Another request may have created the link between the lookup and insert.
-          shortLink = getShortLinkByTargetToken(token);
-          if (!shortLink) throw error;
-        }
-      }
-      return NextResponse.json({ success: true, shortUrl: `${request.nextUrl.origin}/s/${shortLink.code}` });
-    } catch {
-      return NextResponse.json({ error: "Не удалось создать короткую ссылку" }, { status: 500 });
-    }
-  }
   if (action !== "revoke" && action !== "restore") return NextResponse.json({ error: "Неизвестное действие" }, { status: 400 });
   if (!setOwnedTransferRevoked(user.id, token, action === "revoke")) return NextResponse.json({ error: "Передача не найдена" }, { status: 404 });
   return NextResponse.json({ success: true, revoked: action === "revoke" });
@@ -202,7 +176,6 @@ export async function DELETE(
     }
     return NextResponse.json({ error: error instanceof Error ? error.message : "Не удалось удалить передачу" }, { status: 502 });
   }
-  deleteShortLink(token);
   deleteOwnedTransferRecords(user.id, token);
   if (getUserNotificationSettings(user.id).email_enabled) {
     enqueueNotification({

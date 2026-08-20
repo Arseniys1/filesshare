@@ -9,6 +9,7 @@ import {
 } from "@/lib/e2ee-client";
 import { uploadE2EEFileResumable, uploadFileResumable } from "@/lib/resumable-upload-client";
 import { EXPIRY_OPTIONS, formatFileSize } from "@/lib/utils";
+import { copyImageToClipboard } from "@/lib/clipboard";
 import ThemedCheckbox from "@/components/ThemedCheckbox";
 import ThemedSelect from "@/components/ThemedSelect";
 
@@ -68,6 +69,7 @@ export default function UploadZone({
   const [endToEndEncryption, setEndToEndEncryption] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [qr, setQr] = useState<{ name: string; dataUrl: string } | null>(null);
+  const [qrCopied, setQrCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pausedRef = useRef(false);
   const resumeResolversRef = useRef<Array<() => void>>([]);
@@ -325,7 +327,19 @@ export default function UploadZone({
   };
 
   const showQr = async (file: UploadedFile) => {
+    setQrCopied(false);
     setQr({ name: file.isGroup ? `Пакет из ${file.fileCount} файлов` : file.name, dataUrl: await QRCode.toDataURL(file.shareUrl, { width: 280, margin: 2 }) });
+  };
+
+  const copyQr = async () => {
+    if (!qr) return;
+    try {
+      await copyImageToClipboard(qr.dataUrl);
+      setQrCopied(true);
+      window.setTimeout(() => setQrCopied(false), 1800);
+    } catch (copyError) {
+      setGlobalError(copyError instanceof Error ? copyError.message : "Не удалось скопировать QR-код");
+    }
   };
 
   const doneCount = queue.filter((q) => q.status === "done").length;
@@ -685,7 +699,7 @@ export default function UploadZone({
         </div>
       )}
 
-      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl"><h2 className="text-xl font-semibold mb-4">QR-код</h2><div className="rounded-xl bg-white p-3 inline-block"><Image src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="text-sm text-gray-400 mt-4 break-all">{qr.name}</p><button type="button" onClick={() => setQr(null)} className="mt-5 w-full py-2.5 rounded-xl bg-white/5 text-gray-300">Закрыть</button></div></div>}
+      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl"><h2 className="text-xl font-semibold mb-4">QR-код</h2><div className="rounded-xl bg-white p-3 inline-block"><Image src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="text-sm text-gray-400 mt-4 break-all">{qr.name}</p><div className="mt-5 flex gap-2"><button type="button" onClick={copyQr} className="flex-1 rounded-xl bg-accent/20 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30">{qrCopied ? "QR-код скопирован" : "Копировать QR"}</button><button type="button" onClick={() => setQr(null)} className="flex-1 rounded-xl bg-white/5 py-2.5 text-sm text-gray-300">Закрыть</button></div></div></div>}
     </div>
   );
 }

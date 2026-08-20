@@ -125,6 +125,8 @@ test.describe("личный кабинет", () => {
     await page.getByRole("button", { name: "QR", exact: true }).click();
     await expect(page.getByRole("heading", { name: "QR-код" })).toBeVisible();
     await expect(page.getByAltText("QR-код: report.pdf")).toBeVisible();
+    await page.getByRole("button", { name: "Копировать QR", exact: true }).click();
+    await expect(page.getByRole("button", { name: "QR-код скопирован", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Закрыть", exact: true }).click();
 
     await expect(page.getByRole("button", { name: "Короткая", exact: true })).toHaveCount(0);

@@ -118,7 +118,7 @@ export default function AdminUsersPage() {
       {error && <div className="glass rounded-xl p-4 border border-red-500/30 bg-red-500/10"><p className="text-red-400 text-sm">{error}</p></div>}
       {success && <div className="glass rounded-xl p-4 border border-green-500/30 bg-green-500/10"><p className="text-green-400 text-sm">{success}</p></div>}
 
-      <div className="glass rounded-2xl p-5">
+      <div className="glass rounded-2xl p-4 sm:p-5">
         <form onSubmit={submitSearch} className="flex flex-col gap-2 lg:flex-row lg:items-center">
           <input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Поиск по email" aria-label="Поиск пользователей" className="min-w-0 flex-1 bg-surface-overlay border border-white/10 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent/50" />
           <ThemedSelect value={status} options={[{ value: "all", label: "Все" }, { value: "active", label: "Активные" }, { value: "blocked", label: "Заблокированные" }]} onChange={(value) => { setStatus(value as typeof status); setPage(1); }} ariaLabel="Фильтр пользователей по статусу" className="lg:w-48" />
@@ -139,9 +139,9 @@ export default function AdminUsersPage() {
                     <p className="font-medium truncate">{user.email}</p>
                     <p className="text-xs text-gray-500 mt-1">{user.files_count} файлов · {formatFileSize(user.storage_used)} · {user.blocked_at ? "заблокирован" : "активен"} · регистрация {new Date(user.created_at).toLocaleDateString("ru-RU")}</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <ThemedSelect value={user.role} options={[{ value: "user", label: "Пользователь" }, { value: "admin", label: "Администратор" }]} onChange={(value) => updateUser(user, { role: value })} ariaLabel={`Роль пользователя ${user.email}`} className="min-w-44" />
-                    <button type="button" onClick={() => updateUser(user, { blocked: !user.blocked_at })} className="px-3 py-2 rounded-lg text-sm bg-white/5 hover:bg-white/10">{user.blocked_at ? "Разблокировать" : "Заблокировать"}</button>
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    <ThemedSelect value={user.role} options={[{ value: "user", label: "Пользователь" }, { value: "admin", label: "Администратор" }]} onChange={(value) => updateUser(user, { role: value })} ariaLabel={`Роль пользователя ${user.email}`} className="w-full sm:min-w-44" />
+                    <button type="button" onClick={() => updateUser(user, { blocked: !user.blocked_at })} className="w-full rounded-lg bg-white/5 px-3 py-2 text-sm hover:bg-white/10 sm:w-auto">{user.blocked_at ? "Разблокировать" : "Заблокировать"}</button>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-3">

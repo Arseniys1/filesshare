@@ -38,8 +38,8 @@ export default function ResetPasswordPage() {
 
   return (
     <GuestOnly>
-      <div className="max-w-md mx-auto px-4 py-24 animate-fade-in">
-      <div className="glass rounded-2xl p-8 gradient-border">
+      <div className="mx-auto max-w-md px-3 py-12 animate-fade-in sm:px-4 sm:py-24">
+      <div className="glass rounded-2xl p-5 gradient-border sm:p-8">
         <h1 className="text-2xl font-bold text-center mb-2">Новый пароль</h1>
         {success ? (
           <div className="text-center">

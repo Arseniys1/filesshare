@@ -143,7 +143,7 @@ export default function AdminFilesPage() {
       {error && <div className="glass rounded-xl p-4 border border-red-500/30 bg-red-500/10"><p className="text-red-400 text-sm">{error}</p></div>}
       {success && <div className="glass rounded-xl p-4 border border-green-500/30 bg-green-500/10"><p className="text-green-400 text-sm">{success}</p></div>}
 
-      <div className="glass rounded-2xl p-5">
+      <div className="glass rounded-2xl p-4 sm:p-5">
         <form onSubmit={submitSearch} className="flex flex-col gap-2 lg:flex-row lg:items-center">
           <input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Имя файла или email владельца" aria-label="Поиск файлов" className="min-w-0 flex-1 bg-surface-overlay border border-white/10 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-accent/50" />
           <ThemedSelect value={status} options={[{ value: "all", label: "Все" }, { value: "active", label: "Активные" }, { value: "revoked", label: "Отозванные" }, { value: "expired", label: "Истёкшие" }]} onChange={(value) => { setStatus(value as typeof status); setPage(1); }} ariaLabel="Фильтр файлов по статусу" className="lg:w-44" />
@@ -155,7 +155,7 @@ export default function AdminFilesPage() {
       <div className="glass rounded-2xl p-5">
         {loading ? <div className="py-12 text-center text-sm text-gray-500">Загрузка файлов...</div> : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+              <table className="w-full min-w-[760px] text-sm">
               <thead className="text-left text-xs text-gray-500"><tr><th className="pb-3 pr-4">Файл</th><th className="pb-3 pr-4">Владелец</th><th className="pb-3 pr-4">Размер</th><th className="pb-3 pr-4">Скачивания</th><th className="pb-3 pr-4">Статус</th><th className="pb-3">Действия</th></tr></thead>
               <tbody>
                 {files.length === 0 ? <tr><td colSpan={6} className="py-8 text-center text-sm text-gray-500">Файлы не найдены</td></tr> : files.map((file) => {

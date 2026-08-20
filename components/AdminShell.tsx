@@ -80,16 +80,16 @@ export default function AdminShell({ children }: AdminShellProps) {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-12 animate-fade-in">
-      <div className="mb-8">
+    <div className="mx-auto max-w-6xl px-3 py-8 animate-fade-in sm:px-4 sm:py-12">
+      <div className="mb-6 sm:mb-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">
+            <h1 className="text-2xl font-bold sm:text-3xl">
               Админ<span className="gradient-text">-панель</span>
             </h1>
             <p className="text-gray-400 mt-1">Управление FileShare</p>
           </div>
-          <nav aria-label="Разделы админ-панели" className="flex flex-wrap gap-2">
+          <nav aria-label="Разделы админ-панели" className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {navigation.map((item) => {
               const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
               return (
@@ -97,7 +97,7 @@ export default function AdminShell({ children }: AdminShellProps) {
                   key={item.href}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm transition-colors ${
+                  className={`inline-flex min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors sm:px-3.5 ${
                     active
                       ? "bg-accent/20 text-accent-light ring-1 ring-accent/30"
                       : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200"

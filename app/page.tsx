@@ -9,13 +9,13 @@ export default function HomePage() {
   const maxFileSizeLabel = getMaxFileSizeLabel();
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-16 animate-fade-in">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+    <div className="mx-auto max-w-3xl px-4 py-10 animate-fade-in sm:py-16">
+      <div className="mb-10 text-center sm:mb-12">
+        <h1 className="mb-4 text-4xl font-bold leading-tight sm:text-5xl">
           Безопасный обмен{" "}
           <span className="gradient-text">файлами</span>
         </h1>
-        <p className="text-gray-400 text-lg max-w-xl mx-auto">
+        <p className="mx-auto max-w-xl text-base leading-7 text-gray-400 sm:text-lg">
           Загружайте файлы пачкой и получайте одну общую ссылку.
           Каждый файл можно скачать отдельно или получить всё сразу.
           Защищённое хранение с ограничением доступа по времени.
@@ -26,7 +26,7 @@ export default function HomePage() {
         maxFileSize={maxFileSize}
         maxFileSizeLabel={maxFileSizeLabel}
       />
-      <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="mt-12 grid grid-cols-1 gap-4 sm:mt-16 sm:grid-cols-3 sm:gap-6">
         {[
           {
             icon: "⚡",
@@ -46,7 +46,7 @@ export default function HomePage() {
         ].map((feature) => (
           <div
             key={feature.title}
-            className="glass rounded-xl p-6 text-center glass-hover"
+            className="glass rounded-xl p-5 text-center glass-hover sm:p-6"
           >
             <div className="text-3xl mb-3">{feature.icon}</div>
             <h3 className="font-medium mb-1">{feature.title}</h3>

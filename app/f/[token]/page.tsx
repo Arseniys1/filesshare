@@ -241,8 +241,8 @@ export default function SharePage() {
       : 0;
 
   return (
-    <div className={`mx-auto px-4 py-16 animate-fade-in ${isGroup ? "max-w-3xl" : "max-w-lg"}`}>
-      <div className="glass rounded-2xl p-8 gradient-border">
+    <div className={`mx-auto px-3 py-10 animate-fade-in sm:px-4 sm:py-16 ${isGroup ? "max-w-3xl" : "max-w-lg"}`}>
+      <div className="glass rounded-2xl p-5 gradient-border sm:p-8">
         <div className="text-center mb-8">
           <div className="text-5xl mb-4">{isGroup ? "📦" : getFileIcon(file.mimeType)}</div>
           <h1 className="text-xl font-bold mb-1 break-all">{file.name}</h1>
@@ -254,12 +254,12 @@ export default function SharePage() {
         </div>
 
         <div className="space-y-3 mb-8">
-          <div className="flex justify-between text-sm">
+          <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
             <span className="text-gray-400">Загружен</span>
             <span>{formatDate(file.createdAt)}</span>
           </div>
           {file.expiresAt && (
-            <div className="flex justify-between text-sm">
+            <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
               <span className="text-gray-400">Действует до</span>
               <span className={file.expired ? "text-red-400" : ""}>
                 {formatDate(file.expiresAt)}
@@ -267,7 +267,7 @@ export default function SharePage() {
             </div>
           )}
           {file.maxDownloads && (
-            <div className="flex justify-between text-sm">
+            <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
               <span className="text-gray-400">
                 {isGroup ? "Скачивания файлов" : "Скачивания"}
               </span>
@@ -277,19 +277,19 @@ export default function SharePage() {
             </div>
           )}
           {file.hasPassword && (
-            <div className="flex justify-between text-sm">
+            <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
               <span className="text-gray-400">Защита</span>
               <span>🔒 Пароль</span>
             </div>
           )}
           {e2eeFiles > 0 && (
-            <div className="flex justify-between text-sm">
+            <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
               <span className="text-gray-400">Шифрование</span>
               <span>🔐 Сквозное{isGroup ? ` · ${e2eeFiles} файла` : ""}</span>
             </div>
           )}
           {!isGroup && file.storageEncrypted && (
-            <div className="flex justify-between text-sm">
+            <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
               <span className="text-gray-400">Хранение</span>
               <span>🛡️ Зашифровано</span>
             </div>

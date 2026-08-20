@@ -35,8 +35,8 @@ export default function LoginPage() {
 
   return (
     <GuestOnly>
-      <div className="max-w-md mx-auto px-4 py-24 animate-fade-in">
-      <div className="glass rounded-2xl p-8 gradient-border">
+      <div className="mx-auto max-w-md px-3 py-12 animate-fade-in sm:px-4 sm:py-24">
+      <div className="glass rounded-2xl p-5 gradient-border sm:p-8">
         <h1 className="text-2xl font-bold text-center mb-2">Вход</h1>
         <p className="text-gray-400 text-sm text-center mb-8">
           Войдите в аккаунт FileShare
@@ -79,7 +79,7 @@ export default function LoginPage() {
             {loading ? "Входим..." : "Войти"}
           </button>
         </form>
-        <div className="mt-6 flex justify-between text-sm">
+        <div className="mt-6 flex flex-col items-center gap-3 text-center text-sm sm:flex-row sm:justify-between">
           <Link href="/forgot-password" className="text-accent-light hover:underline">
             Забыли пароль?
           </Link>

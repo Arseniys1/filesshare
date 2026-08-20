@@ -364,7 +364,7 @@ export default function UploadZone({
         onDrop={handleDrop}
         onClick={() => !uploading && fileInputRef.current?.click()}
         className={`
-          relative cursor-pointer rounded-2xl p-12 text-center transition-all duration-300
+          relative cursor-pointer rounded-2xl p-6 text-center transition-all duration-300 sm:p-12
           gradient-border glass glass-hover
           ${isDragging ? "scale-[1.02] border-accent/50" : ""}
           ${uploading ? "pointer-events-none opacity-70" : ""}
@@ -403,7 +403,7 @@ export default function UploadZone({
                 ? "Загрузка группы файлов..."
                 : `Загрузка ${doneCount + 1} из ${totalCount}...`}
             </p>
-            <div className="w-64 mx-auto h-2 bg-surface-overlay rounded-full overflow-hidden">
+            <div className="mx-auto h-2 w-64 max-w-full overflow-hidden rounded-full bg-surface-overlay">
               <div
                 className="h-full bg-gradient-to-r from-accent to-purple-500 rounded-full transition-all duration-300"
                 style={{ width: `${progress}%` }}
@@ -435,7 +435,7 @@ export default function UploadZone({
         </div>
       )}
 
-      <div className="glass relative z-40 rounded-2xl p-6 space-y-4">
+      <div className="glass relative z-40 space-y-4 rounded-2xl p-4 sm:p-6">
         <h3 className="font-medium text-gray-300">Настройки доступа</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
@@ -544,7 +544,7 @@ export default function UploadZone({
           </div>
         </div>
         <label
-          className={`flex w-full items-center gap-4 rounded-2xl border px-4 py-3.5 cursor-pointer transition-all ${
+          className={`flex w-full items-start gap-3 rounded-2xl border px-3 py-3.5 cursor-pointer transition-all sm:items-center sm:gap-4 sm:px-4 ${
             endToEndEncryption
               ? "border-accent/40 bg-accent/10 shadow-[0_8px_24px_rgba(84,156,255,0.08)]"
               : "border-white/10 bg-surface-overlay hover:border-accent/30 hover:bg-accent/[0.04]"
@@ -582,7 +582,7 @@ export default function UploadZone({
               Ключ будет только в ссылке. Потеря ссылки означает потерю доступа.
             </span>
           </span>
-          <span className={`hidden text-xs sm:block ${endToEndEncryption ? "text-accent-light" : "text-gray-500"}`}>
+          <span className={`hidden shrink-0 text-xs sm:block ${endToEndEncryption ? "text-accent-light" : "text-gray-500"}`}>
             {endToEndEncryption ? "Включено" : "Выключено"}
           </span>
         </label>
@@ -642,7 +642,7 @@ export default function UploadZone({
           {uploadedFiles.map((file) => (
             <div
               key={file.token}
-              className="glass rounded-xl p-4 flex items-center gap-4 glass-hover"
+              className="glass flex flex-col gap-4 rounded-xl p-4 glass-hover sm:flex-row sm:items-center"
             >
               <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center flex-shrink-0">
                 <svg
@@ -678,18 +678,18 @@ export default function UploadZone({
                   {file.storageEncrypted && <span> · 🛡️ зашифрован в хранилище</span>}
                 </p>
               </div>
-              <div className="flex flex-shrink-0 gap-2">
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => showQr(file)}
-                  className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition-colors"
+                  className="w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 sm:w-auto"
                 >
                   QR
                 </button>
                 <button
                   type="button"
                   onClick={() => copyLink(file.shareUrl, file.token)}
-                  className="px-4 py-2 rounded-lg bg-accent/20 text-accent-light text-sm font-medium hover:bg-accent/30 transition-colors"
+                  className="w-full rounded-lg bg-accent/20 px-4 py-2 text-sm font-medium text-accent-light transition-colors hover:bg-accent/30 sm:w-auto"
                 >
                   {copiedToken === file.token ? "Скопировано!" : "Копировать"}
                 </button>
@@ -699,7 +699,7 @@ export default function UploadZone({
         </div>
       )}
 
-      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl"><h2 className="text-xl font-semibold mb-4">QR-код</h2><div className="rounded-xl bg-white p-3 inline-block"><Image src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="text-sm text-gray-400 mt-4 break-all">{qr.name}</p><div className="mt-5 flex gap-2"><button type="button" onClick={copyQr} className="flex-1 rounded-xl bg-accent/20 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30">{qrCopied ? "QR-код скопирован" : "Копировать QR"}</button><button type="button" onClick={() => setQr(null)} className="flex-1 rounded-xl bg-white/5 py-2.5 text-sm text-gray-300">Закрыть</button></div></div></div>}
+      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-3 py-4 sm:px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-4 text-center shadow-2xl sm:p-6"><h2 className="mb-4 text-xl font-semibold">QR-код</h2><div className="inline-block max-w-full rounded-xl bg-white p-3"><Image className="h-auto max-w-full" src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="mt-4 break-all text-sm text-gray-400">{qr.name}</p><div className="mt-5 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={copyQr} className="flex-1 rounded-xl bg-accent/20 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30">{qrCopied ? "QR-код скопирован" : "Копировать QR"}</button><button type="button" onClick={() => setQr(null)} className="flex-1 rounded-xl bg-white/5 py-2.5 text-sm text-gray-300">Закрыть</button></div></div></div>}
     </div>
   );
 }

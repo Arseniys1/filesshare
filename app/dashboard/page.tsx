@@ -286,10 +286,10 @@ export default function DashboardPage() {
   const totalPages = Math.max(Math.ceil(total / pageSize), 1);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-12 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+    <div className="mx-auto max-w-5xl px-3 py-8 animate-fade-in sm:px-4 sm:py-12">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Личный <span className="gradient-text">кабинет</span></h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Личный <span className="gradient-text">кабинет</span></h1>
           <p className="text-gray-400 mt-1">Управление файлами и ссылками</p>
         </div>
         <Link href="/" className="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-accent/20 text-accent-light text-sm font-medium hover:bg-accent/30">Новая загрузка</Link>
@@ -304,7 +304,7 @@ export default function DashboardPage() {
       )}
 
       {notifications && (
-        <div className="glass rounded-2xl p-5 mb-6">
+        <div className="glass mb-6 rounded-2xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div><h2 className="font-semibold">Email-уведомления</h2></div>
             {notificationSaving && <span className="text-xs text-gray-500">Сохранение...</span>}
@@ -314,7 +314,7 @@ export default function DashboardPage() {
             <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.download_notifications === 1} onChange={(event) => updateNotifications({ download_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> О каждом скачивании</label>
             <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.summary_notifications === 1} onChange={(event) => updateNotifications({ summary_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> Сводные уведомления</label>
           </div>
-          <label className="flex items-center gap-3 text-sm text-gray-400 mt-4">Предупреждать об окончании за
+          <label className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-400">Предупреждать об окончании за
             <ThemedSelect
               value={String(notifications.expiry_warning_days)}
               options={[{ value: "0", label: "Не предупреждать" }, { value: "1", label: "1 день" }, { value: "2", label: "2 дня" }, { value: "3", label: "3 дня" }, { value: "7", label: "7 дней" }, { value: "14", label: "14 дней" }, { value: "30", label: "30 дней" }]}
@@ -333,7 +333,7 @@ export default function DashboardPage() {
             value={status}
             options={[{ value: "", label: "Все статусы" }, { value: "active", label: "Активные" }, { value: "expired", label: "Истёкшие" }, { value: "revoked", label: "Отозванные" }, { value: "password", label: "С паролем" }, { value: "e2ee", label: "E2EE" }]}
             onChange={(value) => { setStatus(value as Status); setPage(1); }}
-            className="w-full"
+              className="w-full sm:w-40"
             ariaLabel="Фильтр по статусу"
           />
           <ThemedSelect
@@ -355,7 +355,7 @@ export default function DashboardPage() {
           <div className="space-y-3">
           {items.map((item) => (
             <div key={item.token} className="glass rounded-2xl p-4 sm:p-5">
-              <div className="flex items-start gap-3">
+              <div className="flex flex-col items-start gap-4 sm:flex-row sm:gap-3">
                 <div className="w-11 h-11 rounded-xl bg-accent/15 flex items-center justify-center text-xl flex-shrink-0">{item.kind === "group" ? "📦" : getFileIcon(item.content_encryption === "e2ee-v1" ? "application/octet-stream" : "application/octet-stream")}</div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium truncate" title={item.name}>{item.name}</p>
@@ -367,12 +367,12 @@ export default function DashboardPage() {
                     <span className="rounded-full px-2 py-1 bg-white/5 text-gray-400">Скачано: {item.download_count}{item.max_downloads ? ` / ${item.max_downloads}` : ""}</span>
                   </div>
                 </div>
-                <div className="flex flex-wrap justify-end gap-2">
-                  <button type="button" onClick={() => copyLink(item)} className="px-3 py-2 rounded-lg bg-accent/20 text-accent-light text-sm hover:bg-accent/30">{copied === item.token ? "Скопировано" : item.canRecreateLink ? "Копировать" : "Нет ключа"}</button>
-                  <button type="button" onClick={() => showQr(item)} className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10">QR</button>
-                  <button type="button" onClick={() => setEdit({ token: item.token, expiry: "keep", password: "", maxDownloads: item.max_downloads ? String(item.max_downloads) : "", clearPassword: false, clearLimit: false })} className="px-3 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10">Изменить</button>
-                  {!item.revoked ? <button type="button" onClick={() => changeStatus(item, "revoke")} className="px-3 py-2 rounded-lg bg-yellow-500/10 text-yellow-400 text-sm hover:bg-yellow-500/20">Отозвать</button> : <button type="button" onClick={() => changeStatus(item, "restore")} className="px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-sm hover:bg-green-500/20">Восстановить</button>}
-                  <button type="button" onClick={() => deleteItem(item)} className="px-3 py-2 rounded-lg bg-red-500/10 text-red-400 text-sm hover:bg-red-500/20">Удалить</button>
+                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+                  <button type="button" onClick={() => copyLink(item)} className="w-full rounded-lg bg-accent/20 px-3 py-2 text-sm text-accent-light hover:bg-accent/30 sm:w-auto">{copied === item.token ? "Скопировано" : item.canRecreateLink ? "Копировать" : "Нет ключа"}</button>
+                  <button type="button" onClick={() => showQr(item)} className="w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 sm:w-auto">QR</button>
+                  <button type="button" onClick={() => setEdit({ token: item.token, expiry: "keep", password: "", maxDownloads: item.max_downloads ? String(item.max_downloads) : "", clearPassword: false, clearLimit: false })} className="w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 sm:w-auto">Изменить</button>
+                  {!item.revoked ? <button type="button" onClick={() => changeStatus(item, "revoke")} className="w-full rounded-lg bg-yellow-500/10 px-3 py-2 text-sm text-yellow-400 hover:bg-yellow-500/20 sm:w-auto">Отозвать</button> : <button type="button" onClick={() => changeStatus(item, "restore")} className="w-full rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-400 hover:bg-green-500/20 sm:w-auto">Восстановить</button>}
+                  <button type="button" onClick={() => deleteItem(item)} className="w-full rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 sm:w-auto">Удалить</button>
                 </div>
               </div>
               {item.expires_at && <p className="text-xs text-gray-500 mt-3">Действует до: {formatDate(item.expires_at)}</p>}
@@ -396,7 +396,7 @@ export default function DashboardPage() {
           <p className="text-sm text-gray-500">
             Показано {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} из {total}
           </p>
-          <div className="flex items-center gap-1.5">
+          <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 sm:justify-end">
             <button
               type="button"
               aria-label="Предыдущая страница"
@@ -437,7 +437,7 @@ export default function DashboardPage() {
         </nav>
       )}
 
-      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl"><h2 className="text-xl font-semibold mb-4">QR-код</h2><div className="rounded-xl bg-white p-3 inline-block"><Image src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="text-sm text-gray-400 mt-4 break-all">{qr.name}</p><div className="mt-5 flex gap-2"><button type="button" onClick={copyQr} className="flex-1 rounded-xl bg-accent/20 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30">{qrCopied ? "QR-код скопирован" : "Копировать QR"}</button><button type="button" onClick={() => setQr(null)} className="flex-1 rounded-xl bg-white/5 py-2.5 text-sm text-gray-300">Закрыть</button></div></div></div>}
+      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-3 py-4 sm:px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-4 text-center shadow-2xl sm:p-6"><h2 className="mb-4 text-xl font-semibold">QR-код</h2><div className="inline-block max-w-full rounded-xl bg-white p-3"><Image className="h-auto max-w-full" src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="mt-4 break-all text-sm text-gray-400">{qr.name}</p><div className="mt-5 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={copyQr} className="flex-1 rounded-xl bg-accent/20 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30">{qrCopied ? "QR-код скопирован" : "Копировать QR"}</button><button type="button" onClick={() => setQr(null)} className="flex-1 rounded-xl bg-white/5 py-2.5 text-sm text-gray-300">Закрыть</button></div></div></div>}
     </div>
   );
 }

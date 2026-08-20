@@ -117,7 +117,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl animate-fade-in px-4 py-12">
+    <div className="mx-auto max-w-3xl animate-fade-in px-3 py-8 sm:px-4 sm:py-12">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Профиль</h1>
@@ -128,7 +128,7 @@ export default function ProfilePage() {
 
       {error && <div className="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
 
-      <section className="glass mb-6 rounded-2xl p-5">
+      <section className="glass mb-6 rounded-2xl p-4 sm:p-5">
         <div className="mb-4">
           <h2 className="font-semibold">API-ключи</h2>
           <p className="mt-1 text-xs text-gray-500">Создавайте ключи для интеграций. Секрет показывается только один раз.</p>
@@ -142,7 +142,7 @@ export default function ProfilePage() {
             maxLength={64}
             className="min-w-0 flex-1 rounded-xl border border-white/10 bg-surface-overlay px-4 py-2.5 text-sm focus:border-accent/50 focus:outline-none"
           />
-          <button type="button" onClick={createApiKey} disabled={saving || !name.trim()} className="rounded-xl bg-accent/20 px-4 py-2.5 text-sm font-medium text-accent-light disabled:opacity-40">
+          <button type="button" onClick={createApiKey} disabled={saving || !name.trim()} className="w-full rounded-xl bg-accent/20 px-4 py-2.5 text-sm font-medium text-accent-light disabled:opacity-40 sm:w-auto">
             {saving ? "Создание..." : "Создать ключ"}
           </button>
         </div>

@@ -23,13 +23,13 @@ export default function AuthNav() {
       <>
         <Link
           href="/login"
-          className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+          className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white sm:px-3"
         >
           Войти
         </Link>
         <Link
           href="/register"
-          className="text-sm text-accent-light hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+          className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-accent-light transition-colors hover:bg-white/5 hover:text-white sm:px-3"
         >
           Регистрация
         </Link>
@@ -41,14 +41,14 @@ export default function AuthNav() {
     <>
       <Link
         href="/dashboard"
-        className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+        className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white sm:px-3"
       >
         Мои файлы
       </Link>
       {user.role === "admin" && (
         <Link
           href="/admin"
-          className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+          className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white sm:px-3"
         >
           Админ
         </Link>
@@ -56,7 +56,7 @@ export default function AuthNav() {
       <Link
         href="/profile"
         title="Профиль"
-        className="hidden sm:inline text-sm text-gray-500 max-w-40 truncate hover:text-white transition-colors"
+        className="hidden max-w-40 shrink-0 truncate text-sm text-gray-500 transition-colors hover:text-white sm:inline"
       >
         {user.email}
       </Link>
@@ -66,7 +66,7 @@ export default function AuthNav() {
           await fetch("/api/auth/logout", { method: "POST" });
           window.location.href = "/";
         }}
-        className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+        className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white sm:px-3"
       >
         Выйти
       </button>

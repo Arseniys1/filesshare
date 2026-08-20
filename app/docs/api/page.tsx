@@ -89,7 +89,7 @@ const endpoints: ApiEndpoint[] = [
       expiryParameter,
       ...uploadSecurityParameters,
       { name: "groupToken", location: "body", type: "string", description: "Токен существующей группы файлов." },
-      { name: "contentEncryption", location: "body", type: "none | e2ee-v1", description: "Режим шифрования содержимого. Для E2EE используйте e2ee-v1." },
+      { name: "contentEncryption", location: "body", type: "none | e2ee-v1", description: "Режим шифрования содержимого. Для E2EE используйте e2ee-v1; ключ добавляется в fragment ссылки после #." },
       { name: "originalSize", location: "body", type: "integer", description: "Размер исходного файла в байтах; нужен для E2EE." },
     ],
   },
@@ -106,7 +106,7 @@ const endpoints: ApiEndpoint[] = [
       expiryParameter,
       ...uploadSecurityParameters,
       { name: "groupToken", location: "body", type: "string", description: "Токен существующей группы файлов." },
-      { name: "contentEncryption", location: "body", type: "none | e2ee-v1", description: "Режим шифрования содержимого." },
+      { name: "contentEncryption", location: "body", type: "none | e2ee-v1", description: "Режим шифрования содержимого. Для E2EE ключ добавляется в fragment ссылки после #." },
     ],
   },
   {
@@ -365,7 +365,7 @@ export default function ApiDocsPage() {
           <section className="glass rounded-2xl p-5">
             <h2 className="text-xl font-semibold mb-4">Маршруты</h2>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-left text-gray-500">
                     <th className="py-2 pr-4">Метод</th>
@@ -500,7 +500,11 @@ export default function ApiDocsPage() {
             <a href="/api/docs/markdown" className="block mt-2 text-sm text-gray-400 hover:text-white">Скачать Markdown-документацию</a>
           </div>
           <div className="glass rounded-2xl p-5 text-sm text-gray-400 leading-6">
-            E2EE поддерживается через upload API. Ключ шифрования остаётся у клиента и не передаётся серверу.
+            <h2 className="mb-2 font-semibold text-foreground">E2EE-ссылки</h2>
+            <p>E2EE поддерживается через upload API. Ключ шифрования остаётся у клиента и не передаётся серверу.</p>
+            <p className="mt-2">После загрузки добавьте ключ в fragment ссылки после символа <code className="api-path">#</code>:</p>
+            <code className="api-path mt-2 block break-all text-xs">https://your-domain.example/f/file-token#&lt;E2EE_KEY&gt;</code>
+            <p className="mt-2 text-xs">Fragment не отправляется серверу при HTTP-запросе.</p>
           </div>
         </aside>
       </div>

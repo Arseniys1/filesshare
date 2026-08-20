@@ -109,7 +109,7 @@ export default function AdminBotsPage() {
       {success && <div className="glass rounded-xl p-4 border border-green-500/30 bg-green-500/10"><p className="text-green-400 text-sm">{success}</p></div>}
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4 animate-slide-up">
+        <form onSubmit={handleSubmit} className="glass space-y-4 rounded-2xl p-4 animate-slide-up sm:p-6">
           <h3 className="font-medium">Новый Telegram-бот</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -143,15 +143,15 @@ export default function AdminBotsPage() {
       ) : (
         <div className="space-y-3">
           {accounts.map((account) => (
-            <div key={account.id} className="glass rounded-xl p-5 flex flex-col gap-4 sm:flex-row sm:items-center glass-hover">
+            <div key={account.id} className="glass flex flex-col gap-4 rounded-xl p-4 glass-hover sm:flex-row sm:items-center sm:p-5">
               <div className={`w-3 h-3 rounded-full flex-shrink-0 ${account.isActive ? "bg-green-400" : "bg-gray-600"}`} />
               <div className="flex-1 min-w-0">
                 <p className="font-medium">{account.name}</p>
                 <p className="text-sm text-gray-400 break-words">{account.botToken} · Канал: {account.channelId} · {account.filesCount} файлов</p>
               </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <button type="button" onClick={() => void toggleAccount(account)} className="px-3 py-1.5 rounded-lg text-sm bg-white/5 hover:bg-white/10 transition-colors">{account.isActive ? "Выключить" : "Включить"}</button>
-                <button type="button" onClick={() => void deleteAccount(account)} disabled={account.filesCount > 0} title={account.filesCount > 0 ? "Сначала дождитесь очистки файлов или отключите аккаунт" : undefined} className="px-3 py-1.5 rounded-lg text-sm text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Удалить</button>
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-shrink-0">
+                <button type="button" onClick={() => void toggleAccount(account)} className="w-full rounded-lg bg-white/5 px-3 py-1.5 text-sm transition-colors hover:bg-white/10 sm:w-auto">{account.isActive ? "Выключить" : "Включить"}</button>
+                <button type="button" onClick={() => void deleteAccount(account)} disabled={account.filesCount > 0} title={account.filesCount > 0 ? "Сначала дождитесь очистки файлов или отключите аккаунт" : undefined} className="w-full rounded-lg bg-red-500/10 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto">Удалить</button>
               </div>
             </div>
           ))}

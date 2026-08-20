@@ -95,6 +95,12 @@
     "accessSettings": "Configuración de acceso",
     "expiry": "Caducidad",
     "expiryAria": "Caducidad del enlace",
+    "expiryOptions": {
+      "1h": "1 hora",
+      "24h": "24 horas",
+      "7d": "7 días",
+      "30d": "30 días"
+    },
     "optionalPassword": "Contraseña (opcional)",
     "protectWithPassword": "Proteger con contraseña",
     "downloadLimit": "Límite de descargas",
@@ -221,6 +227,7 @@
     "summaryNotifications": "Notificaciones resumidas",
     "warnBeforeExpiry": "Avisar antes de caducar",
     "doNotWarn": "No avisar",
+    "days": "{count, plural, one {# día} other {# días}}",
     "searchByName": "Buscar por nombre",
     "allStatuses": "Todos los estados",
     "activeStatuses": "Activos",

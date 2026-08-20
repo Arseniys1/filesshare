@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import QRCode from "qrcode";
 import {
-  EXPIRY_OPTIONS,
   formatDate,
   formatFileSize,
   getFileIcon,
@@ -79,6 +78,7 @@ function EditTransferPanel({
   onClose,
 }: EditTransferPanelProps) {
   const t = useTranslations("dashboard");
+  const uploadT = useTranslations("upload");
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-accent/15 bg-surface-overlay shadow-lg shadow-black/5">
       <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-5">
@@ -108,7 +108,14 @@ function EditTransferPanel({
             </label>
             <ThemedSelect
               value={edit.expiry}
-              options={[{ value: "keep", label: t("keep") }, ...EXPIRY_OPTIONS]}
+              options={[
+                { value: "keep", label: t("keep") },
+                { value: "1h", label: uploadT("expiryOptions.1h") },
+                { value: "24h", label: uploadT("expiryOptions.24h") },
+                { value: "7d", label: uploadT("expiryOptions.7d") },
+                { value: "30d", label: uploadT("expiryOptions.30d") },
+                { value: "never", label: uploadT("unlimited") },
+              ]}
               onChange={(value) => onChange({ expiry: value })}
               className="w-full"
               ariaLabel={t("expiresAt")}
@@ -505,12 +512,12 @@ export default function DashboardPage() {
               value={String(notifications.expiry_warning_days)}
               options={[
                 { value: "0", label: t("doNotWarn") },
-                { value: "1", label: "1 day" },
-                { value: "2", label: "2 days" },
-                { value: "3", label: "3 days" },
-                { value: "7", label: "7 days" },
-                { value: "14", label: "14 days" },
-                { value: "30", label: "30 days" },
+                { value: "1", label: t("days", { count: 1 }) },
+                { value: "2", label: t("days", { count: 2 }) },
+                { value: "3", label: t("days", { count: 3 }) },
+                { value: "7", label: t("days", { count: 7 }) },
+                { value: "14", label: t("days", { count: 14 }) },
+                { value: "30", label: t("days", { count: 30 }) },
               ]}
               onChange={(value) =>
                 updateNotifications({ expiry_warning_days: Number(value) })

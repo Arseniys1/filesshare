@@ -95,6 +95,12 @@
     "accessSettings": "Zugriffseinstellungen",
     "expiry": "Gültigkeit",
     "expiryAria": "Gültigkeit des Links",
+    "expiryOptions": {
+      "1h": "1 Stunde",
+      "24h": "24 Stunden",
+      "7d": "7 Tage",
+      "30d": "30 Tage"
+    },
     "optionalPassword": "Passwort (optional)",
     "protectWithPassword": "Mit Passwort schützen",
     "downloadLimit": "Download-Limit",
@@ -221,6 +227,7 @@
     "summaryNotifications": "Zusammenfassungen",
     "warnBeforeExpiry": "Vor Ablauf warnen",
     "doNotWarn": "Nicht warnen",
+    "days": "{count, plural, one {# Tag} other {# Tage}}",
     "searchByName": "Nach Namen suchen",
     "allStatuses": "Alle Status",
     "activeStatuses": "Aktiv",

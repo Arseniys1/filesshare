@@ -95,6 +95,12 @@
     "accessSettings": "Настройки доступа",
     "expiry": "Срок действия",
     "expiryAria": "Срок действия ссылки",
+    "expiryOptions": {
+      "1h": "1 час",
+      "24h": "24 часа",
+      "7d": "7 дней",
+      "30d": "30 дней"
+    },
     "optionalPassword": "Пароль (необязательно)",
     "protectWithPassword": "Защитить паролем",
     "downloadLimit": "Лимит скачиваний",
@@ -221,6 +227,7 @@
     "summaryNotifications": "Сводные уведомления",
     "warnBeforeExpiry": "Предупреждать об окончании за",
     "doNotWarn": "Не предупреждать",
+    "days": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
     "searchByName": "Поиск по названию",
     "allStatuses": "Все статусы",
     "activeStatuses": "Активные",

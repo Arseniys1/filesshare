@@ -102,11 +102,11 @@ export function computeExpiresAt(
 }
 
 export const EXPIRY_OPTIONS = [
-  { value: "1h", label: "1 час" },
-  { value: "24h", label: "24 часа" },
-  { value: "7d", label: "7 дней" },
-  { value: "30d", label: "30 дней" },
-  { value: "never", label: "Без ограничения" },
+  { value: "1h" },
+  { value: "24h" },
+  { value: "7d" },
+  { value: "30d" },
+  { value: "never" },
 ] as const;
 
 export function getFileIcon(mimeType: string): string {

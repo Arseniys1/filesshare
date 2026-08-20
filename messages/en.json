@@ -95,6 +95,12 @@
     "accessSettings": "Access settings",
     "expiry": "Expiry",
     "expiryAria": "Link expiry",
+    "expiryOptions": {
+      "1h": "1 hour",
+      "24h": "24 hours",
+      "7d": "7 days",
+      "30d": "30 days"
+    },
     "optionalPassword": "Password (optional)",
     "protectWithPassword": "Protect with a password",
     "downloadLimit": "Download limit",
@@ -221,6 +227,7 @@
     "summaryNotifications": "Summary notifications",
     "warnBeforeExpiry": "Warn before expiry",
     "doNotWarn": "Do not warn",
+    "days": "{count, plural, one {# day} other {# days}}",
     "searchByName": "Search by name",
     "allStatuses": "All statuses",
     "activeStatuses": "Active",

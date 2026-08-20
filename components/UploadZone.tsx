@@ -9,7 +9,7 @@ import {
   addE2EEKeyToShareUrl,
 } from "@/lib/e2ee-client";
 import { uploadE2EEFileResumable, uploadFileResumable } from "@/lib/resumable-upload-client";
-import { EXPIRY_OPTIONS, formatFileSize } from "@/lib/utils";
+import { formatFileSize } from "@/lib/utils";
 import { copyImageToClipboard } from "@/lib/clipboard";
 import ThemedCheckbox from "@/components/ThemedCheckbox";
 import ThemedSelect from "@/components/ThemedSelect";
@@ -447,7 +447,13 @@ export default function UploadZone({
             </label>
             <ThemedSelect
               value={expiry}
-              options={[...EXPIRY_OPTIONS]}
+              options={[
+                { value: "1h", label: t("expiryOptions.1h") },
+                { value: "24h", label: t("expiryOptions.24h") },
+                { value: "7d", label: t("expiryOptions.7d") },
+                { value: "30d", label: t("expiryOptions.30d") },
+                { value: "never", label: t("unlimited") },
+              ]}
               onChange={setExpiry}
               disabled={uploading}
               className="w-full"

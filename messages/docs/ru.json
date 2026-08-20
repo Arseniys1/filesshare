@@ -35,7 +35,7 @@
   "downloadMarkdown": "Скачать Markdown-документацию",
   "e2eeTitle": "E2EE-ссылки",
   "e2eeBody": "E2EE поддерживается через upload API. Ключ шифрования остаётся у клиента и не передаётся серверу.",
-  "e2eeFragment": "После загрузки добавьте ключ в fragment ссылки после символа",
+  "e2eeFragment": "После загрузки добавьте ключ в fragment ссылки в формате",
   "fragmentNote": "Fragment не отправляется серверу при HTTP-запросе.",
   "text": {
     "text0": {

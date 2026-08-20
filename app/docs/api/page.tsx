@@ -1012,10 +1012,10 @@ export default async function ApiDocsPage() {
             </h2>
             <p>{t("e2eeBody")}</p>
             <p className="mt-2">
-              {t("e2eeFragment")} <code className="api-path">#</code>:
+              {t("e2eeFragment")} <code className="api-path">#key=</code>:
             </p>
             <code className="api-path mt-2 block break-all text-xs">
-              https://your-domain.example/f/file-token#&lt;E2EE_KEY&gt;
+              https://your-domain.example/f/file-token#key=&lt;E2EE_KEY&gt;
             </code>
             <p className="mt-2 text-xs">{t("fragmentNote")}</p>
           </div>

@@ -182,6 +182,9 @@
   "profile": {
     "title": "Профиль",
     "loginRequired": "Войдите, чтобы управлять профилем и API-ключами.",
+    "regenerateAvatar": "Сгенерировать новый аватар",
+    "regeneratingAvatar": "Генерируем...",
+    "regenerateAvatarError": "Не удалось сгенерировать аватар",
     "apiKeys": "API-ключи",
     "copy": "Копировать",
     "apiKeysDescription": "Создавайте ключи для интеграций. Секрет показывается только один раз.",
@@ -216,7 +219,7 @@
     "revoked": "Отозвана",
     "expired": "Истекла",
     "active": "Активна",
-    "cabinet": "Личный кабинет",
+    "cabinet": "Мои файлы",
     "cabinetDescription": "Управление файлами и ссылками",
     "newUpload": "Новая загрузка",
     "transfers": "Передач",

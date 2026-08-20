@@ -182,6 +182,9 @@
   "profile": {
     "title": "Perfil",
     "loginRequired": "Inicia sesión para gestionar tu perfil y las claves API.",
+    "regenerateAvatar": "Generar un nuevo avatar",
+    "regeneratingAvatar": "Generando...",
+    "regenerateAvatarError": "No se pudo generar el avatar",
     "apiKeys": "Claves API",
     "copy": "Copiar",
     "apiKeysDescription": "Crea claves para integraciones. El secreto solo se muestra una vez.",
@@ -216,7 +219,7 @@
     "revoked": "Revocado",
     "expired": "Caducado",
     "active": "Activo",
-    "cabinet": "Mi espacio",
+    "cabinet": "Mis archivos",
     "cabinetDescription": "Gestiona archivos y enlaces",
     "newUpload": "Nueva carga",
     "transfers": "Transferencias",

@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { formatDate } from "@/lib/utils";
+import UserAvatar from "@/components/UserAvatar";
 
 interface ProfileUser {
   email: string;
+  avatarSeed: string | null;
 }
 
 interface ApiKey {
@@ -43,6 +45,7 @@ export default function ProfilePage() {
   const [name, setName] = useState("");
   const [secret, setSecret] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [regeneratingAvatar, setRegeneratingAvatar] = useState(false);
   const [loading, setLoading] = useState(true);
   const [unauthenticated, setUnauthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +126,30 @@ export default function ProfilePage() {
     }
   };
 
+  const regenerateAvatar = async () => {
+    setRegeneratingAvatar(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/user/avatar", { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.user) {
+        throw new Error(data.error || t("regenerateAvatarError"));
+      }
+      setUser(data.user);
+      window.dispatchEvent(
+        new CustomEvent("user-avatar-updated", { detail: data.user }),
+      );
+    } catch (regenerateError) {
+      setError(
+        regenerateError instanceof Error
+          ? regenerateError.message
+          : t("regenerateAvatarError"),
+      );
+    } finally {
+      setRegeneratingAvatar(false);
+    }
+  };
+
   if (unauthenticated) {
     return (
       <div className="mx-auto max-w-md px-4 py-32">
@@ -143,11 +170,26 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-3xl animate-fade-in px-3 py-8 sm:px-4 sm:py-12">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{t("title")}</h1>
-          <p className="mt-1 text-gray-400">
-            {user?.email || t("loadingKeys")}
-          </p>
+        <div className="flex items-center gap-4">
+          {user ? (
+            <UserAvatar email={user.email} seed={user.avatarSeed} size={64} />
+          ) : null}
+          <div>
+            <h1 className="text-3xl font-bold">{t("title")}</h1>
+            <p className="mt-1 text-gray-400">
+              {user?.email || t("loadingKeys")}
+            </p>
+            <button
+              type="button"
+              onClick={regenerateAvatar}
+              disabled={regeneratingAvatar || !user}
+              className="mt-3 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {regeneratingAvatar
+                ? t("regeneratingAvatar")
+                : t("regenerateAvatar")}
+            </button>
+          </div>
         </div>
         <Link
           href="/dashboard"

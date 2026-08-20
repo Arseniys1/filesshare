@@ -182,6 +182,9 @@
   "profile": {
     "title": "Profil",
     "loginRequired": "Melde dich an, um dein Profil und API-Schlüssel zu verwalten.",
+    "regenerateAvatar": "Neues Avatar generieren",
+    "regeneratingAvatar": "Wird generiert...",
+    "regenerateAvatarError": "Avatar konnte nicht generiert werden",
     "apiKeys": "API-Schlüssel",
     "copy": "Kopieren",
     "apiKeysDescription": "Erstelle Schlüssel für Integrationen. Das Geheimnis wird nur einmal angezeigt.",
@@ -216,7 +219,7 @@
     "revoked": "Widerrufen",
     "expired": "Abgelaufen",
     "active": "Aktiv",
-    "cabinet": "Mein Bereich",
+    "cabinet": "Meine Dateien",
     "cabinetDescription": "Dateien und Links verwalten",
     "newUpload": "Neuer Upload",
     "transfers": "Übertragungen",

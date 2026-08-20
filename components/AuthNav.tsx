@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import UserAvatar from "@/components/UserAvatar";
 
 interface AuthUser {
   email: string;
   role: "user" | "admin";
+  avatarSeed: string | null;
 }
 
 export default function AuthNav() {
@@ -14,10 +16,18 @@ export default function AuthNav() {
   const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
+    const handleAvatarUpdate = (event: Event) => {
+      const user = (event as CustomEvent<AuthUser>).detail;
+      if (user) setUser(user);
+    };
+
+    window.addEventListener("user-avatar-updated", handleAvatarUpdate);
     fetch("/api/auth/me")
       .then((response) => response.json())
       .then((data: { user: AuthUser | null }) => setUser(data.user))
       .catch(() => setUser(null));
+
+    return () => window.removeEventListener("user-avatar-updated", handleAvatarUpdate);
   }, []);
 
   if (!user) {
@@ -58,9 +68,10 @@ export default function AuthNav() {
       <Link
         href="/profile"
         title={t("profile")}
-        className="hidden max-w-40 shrink-0 truncate text-sm text-gray-500 transition-colors hover:text-white sm:inline"
+        className="flex shrink-0 items-center gap-2 rounded-lg px-1.5 py-1.5 text-sm text-gray-500 transition-colors hover:bg-white/5 hover:text-white sm:max-w-40 sm:px-2"
       >
-        {user.email}
+        <UserAvatar email={user.email} seed={user.avatarSeed} size={28} />
+        <span className="hidden max-w-40 truncate sm:inline">{user.email}</span>
       </Link>
       <button
         type="button"

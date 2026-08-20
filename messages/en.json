@@ -182,6 +182,9 @@
   "profile": {
     "title": "Profile",
     "loginRequired": "Log in to manage your profile and API keys.",
+    "regenerateAvatar": "Generate a new avatar",
+    "regeneratingAvatar": "Generating...",
+    "regenerateAvatarError": "Could not generate avatar",
     "apiKeys": "API keys",
     "copy": "Copy",
     "apiKeysDescription": "Create keys for integrations. The secret is shown only once.",
@@ -216,7 +219,7 @@
     "revoked": "Revoked",
     "expired": "Expired",
     "active": "Active",
-    "cabinet": "My workspace",
+    "cabinet": "My files",
     "cabinetDescription": "Manage files and links",
     "newUpload": "New upload",
     "transfers": "Transfers",

@@ -19,6 +19,7 @@ export interface PublicUser {
   id: number;
   email: string;
   role: UserRole;
+  avatarSeed: string | null;
   createdAt: string;
 }
 
@@ -27,6 +28,7 @@ function toPublicUser(user: AuthUserRecord): PublicUser {
     id: user.id,
     email: user.email,
     role: user.role,
+    avatarSeed: user.avatar_seed,
     createdAt: user.created_at,
   };
 }

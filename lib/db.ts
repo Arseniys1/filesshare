@@ -538,6 +538,14 @@ const migrations: Migration[] = [
       );
     },
   },
+  {
+    id: "025_user_avatar_seed",
+    apply: () => {
+      if (!hasColumn("users", "avatar_seed")) {
+        db.exec("ALTER TABLE users ADD COLUMN avatar_seed TEXT");
+      }
+    },
+  },
 ];
 
 db.exec("BEGIN IMMEDIATE");
@@ -593,6 +601,7 @@ export interface UserRecord {
   email: string;
   password_hash: string;
   role: UserRole;
+  avatar_seed: string | null;
   blocked_at: string | null;
   max_file_size: number | null;
   storage_limit: number | null;
@@ -606,6 +615,7 @@ export interface AuthUserRecord {
   id: number;
   email: string;
   role: UserRole;
+  avatar_seed: string | null;
   blocked_at: string | null;
   created_at: string;
 }
@@ -1202,7 +1212,7 @@ export function getUserBySessionHash(tokenHash: string): AuthUserRecord | undefi
   db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(now);
   return db
     .prepare(
-      `SELECT u.id, u.email, u.role, u.blocked_at, u.created_at
+      `SELECT u.id, u.email, u.role, u.avatar_seed, u.blocked_at, u.created_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ? AND s.expires_at > ? AND u.blocked_at IS NULL`
@@ -1213,7 +1223,7 @@ export function getUserBySessionHash(tokenHash: string): AuthUserRecord | undefi
 export function getUserBySessionHashIncludingBlocked(tokenHash: string): AuthUserRecord | undefined {
   return db
     .prepare(
-      `SELECT u.id, u.email, u.role, u.blocked_at, u.created_at
+      `SELECT u.id, u.email, u.role, u.avatar_seed, u.blocked_at, u.created_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ? AND s.expires_at > ?`
@@ -1240,6 +1250,10 @@ export function createUser(email: string, passwordHash: string): UserRecord {
 
 export function updateUserPassword(userId: number, passwordHash: string): void {
   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(passwordHash, userId);
+}
+
+export function updateUserAvatarSeed(userId: number, avatarSeed: string): void {
+  db.prepare("UPDATE users SET avatar_seed = ? WHERE id = ?").run(avatarSeed, userId);
 }
 
 export function createSession(

@@ -6,7 +6,7 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import Telemetry from "@/components/Telemetry";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 
 const themeScript = `
 (function () {
@@ -23,10 +23,13 @@ const themeScript = `
 })();
 `;
 
-export const metadata: Metadata = {
-  title: "FileShare — Secure file sharing",
-  description: "Secure file uploads and sharing with time-limited access",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("metadata");
+  return {
+    title: t("title"),
+    description: t("description"),
+  };
+}
 
 export default async function RootLayout({
   children,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUserApiKey, listPublicApiKeysPage } from "@/lib/api-keys";
 import { getCurrentUserStatus } from "@/lib/auth";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 
@@ -24,13 +25,14 @@ export async function POST(request: NextRequest) {
   const auth = getUser(request);
   if (!auth.user) return auth.response!;
   try {
-    const body = await request.json() as { name?: unknown };
+    const body = await readJsonWithLimit<{ name?: unknown }>(request, 16 * 1024);
     if (typeof body.name !== "string") {
       return NextResponse.json({ error: "Название ключа обязательно" }, { status: 400 });
     }
     const created = createUserApiKey(auth.user.id, body.name);
     return NextResponse.json(created, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return NextResponse.json({ error: error.message }, { status: 413 });
     return NextResponse.json({ error: error instanceof Error ? error.message : "Не удалось создать API-ключ" }, { status: 400 });
   }
 }

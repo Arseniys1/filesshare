@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { NextRequest } from "next/server";
 import { hashPassword } from "@/lib/utils";
-import { getActiveStorageAccounts, getActiveUploadSessionCount, getUserById, getUserQuotaUsage, createUploadSession } from "@/lib/db";
+import { getActiveStorageAccounts, getActiveUploadSessionCount, getUserById, getUserQuotaUsage, createUploadSession, UploadSessionQuotaError } from "@/lib/db";
 import { apiError, apiOk, parseJsonObject, requireApiKey } from "@/lib/api-v1";
 import {
   createSessionRoot,
@@ -16,6 +16,8 @@ import {
 import { getMaxFileSizeBytes } from "@/lib/telegram-config";
 import { getE2EEEncryptedSize, E2EE_CHUNK_SIZE } from "@/lib/e2ee-client";
 import { validateUploadFileType } from "@/lib/file-validation";
+import { getClientIp } from "@/lib/upload-rate-limit";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 
@@ -24,7 +26,7 @@ export async function POST(request: NextRequest) {
   const auth = requireApiKey(request);
   if (auth.response) return auth.response;
   try {
-    const body = parseJsonObject(await request.json());
+    const body = parseJsonObject(await readJsonWithLimit(request, 64 * 1024));
     if (getActiveStorageAccounts().length === 0) return apiError("storage_unavailable", "Сервис хранения пока не настроен. Обратитесь к администратору.", 503);
     const user = getUserById(auth.context.user.id);
     if (!user || user.blocked_at) return apiError("user_blocked", "Пользователь заблокирован", 403);
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
       password_hash: passwordHash,
       group_token: groupToken,
       upload_root: uploadRoot,
+      client_ip: getClientIp(request.headers),
     });
     return apiOk({
       sessionId: session.id,
@@ -86,6 +89,8 @@ export async function POST(request: NextRequest) {
       const { rm } = await import("node:fs/promises");
       await rm(uploadRoot, { recursive: true, force: true }).catch(() => {});
     }
+    if (error instanceof UploadSessionQuotaError) return apiError("rate_limit_exceeded", error.message, 429, { "Retry-After": String(error.retryAfterSeconds) });
+    if (error instanceof RequestBodyTooLargeError) return apiError("payload_too_large", error.message, 413);
     return apiError("invalid_request", error instanceof Error ? error.message : "Не удалось создать сессию загрузки", 400);
   }
 }

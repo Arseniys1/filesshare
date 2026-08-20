@@ -9,6 +9,7 @@ import {
 import { testBotConnection } from "@/lib/telegram";
 import { getStats } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -50,8 +51,11 @@ export async function POST(request: NextRequest) {
   if (authError) return authError;
 
   try {
-    const body = await request.json();
-    const { name, botToken, channelId, testConnection } = body;
+    const body = await readJsonWithLimit<{ name?: unknown; botToken?: unknown; channelId?: unknown; testConnection?: unknown }>(request, 32 * 1024);
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const botToken = typeof body.botToken === "string" ? body.botToken.trim() : "";
+    const channelId = typeof body.channelId === "string" ? body.channelId.trim() : "";
+    const testConnection = body.testConnection;
 
     if (!name || !botToken || !channelId) {
       return NextResponse.json(
@@ -96,6 +100,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (err) {
+    if (err instanceof RequestBodyTooLargeError) return NextResponse.json({ error: err.message }, { status: 413 });
     console.error("Create account error:", err);
     const message =
       err instanceof Error && err.message.includes("UNIQUE")
@@ -110,8 +115,10 @@ export async function PATCH(request: NextRequest) {
   if (authError) return authError;
 
   try {
-    const body = await request.json();
-    const { id, name, isActive } = body;
+    const body = await readJsonWithLimit<{ id?: unknown; name?: unknown; isActive?: unknown }>(request, 16 * 1024);
+    const id = typeof body.id === "number" ? body.id : Number(body.id);
+    const name = body.name === undefined ? undefined : typeof body.name === "string" ? body.name.trim() : "";
+    const isActive = body.isActive === undefined ? undefined : Boolean(body.isActive);
 
     if (!id) {
       return NextResponse.json({ error: "ID обязателен" }, { status: 400 });
@@ -124,6 +131,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
+    if (err instanceof RequestBodyTooLargeError) return NextResponse.json({ error: err.message }, { status: 413 });
     console.error("Update account error:", err);
     return NextResponse.json(
       { error: "Ошибка при обновлении аккаунта" },

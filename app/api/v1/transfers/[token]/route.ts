@@ -14,6 +14,7 @@ import { deleteTelegramMessage } from "@/lib/telegram";
 import { computeExpiresAt, EXPIRY_OPTIONS, hashPassword, isExpired } from "@/lib/utils";
 import { mapTransferDetails } from "@/lib/user-api-transfer";
 import { parseMaxDownloads } from "@/lib/user-api-input";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 
@@ -46,7 +47,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const details = getOwnedTransferDetails(auth.context.user.id, token);
   if (!details) return apiError("transfer_not_found", "Передача не найдена", 404);
   try {
-    const body = parseJsonObject(await request.json());
+    const body = parseJsonObject(await readJsonWithLimit(request, 32 * 1024));
     const expiresAt = parseExpiresAt(body);
     const maxDownloads = body.maxDownloads === undefined ? undefined : parseMaxDownloads(body.maxDownloads);
     const user = getUserById(auth.context.user.id);
@@ -63,6 +64,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     updateOwnedTransfer(auth.context.user.id, token, { expiresAt, maxDownloads, passwordHash });
     return apiOk({ success: true });
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return apiError("payload_too_large", error.message, 413);
     return apiError("invalid_request", error instanceof Error ? error.message : "Ошибка обновления", 400);
   }
 }

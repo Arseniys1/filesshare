@@ -3,6 +3,7 @@ import { getUploadSessionParts, setUploadSessionResult, setUploadSessionStatus }
 import { apiError, apiOk, requireApiKey } from "@/lib/api-v1";
 import { assembleSession, cleanupSessionFiles, getAccessibleSession, parseSessionChecksum } from "@/lib/upload-session-service";
 import { persistUploadedFile } from "@/lib/upload-service";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
@@ -18,7 +19,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (getUploadSessionParts(id).length !== session.total_chunks) return apiError("missing_parts", "Загрузите все части файла", 409);
   setUploadSessionStatus(id, "assembling");
   try {
-    const rawBody = await request.json().catch(() => ({}));
+    const rawBody = await readJsonWithLimit(request, 16 * 1024).catch((error) => {
+      if (error instanceof RequestBodyTooLargeError) throw error;
+      return {};
+    });
     const body = rawBody && typeof rawBody === "object" && !Array.isArray(rawBody) ? rawBody as Record<string, unknown> : {};
     const checksum = parseSessionChecksum(body.checksum);
     const assembled = await assembleSession(session, checksum);
@@ -44,6 +48,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return apiOk({ success: true, file });
   } catch (error) {
     setUploadSessionStatus(id, "failed");
+    if (error instanceof RequestBodyTooLargeError) return apiError("payload_too_large", error.message, 413);
     return apiError("upload_completion_failed", error instanceof Error ? error.message : "Не удалось завершить загрузку", 500);
   }
 }

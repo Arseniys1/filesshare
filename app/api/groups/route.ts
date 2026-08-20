@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createFileGroup, getUserById, getUserQuotaUsage } from "@/lib/db";
 import { getCurrentUserStatus } from "@/lib/auth";
 import { EXPIRY_OPTIONS, computeExpiresAt, generateFileToken, hashPassword } from "@/lib/utils";
+import { consumeRequestRateLimit, getRequestIp } from "@/lib/request-rate-limit";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 
@@ -19,14 +21,16 @@ function parseMaxDownloads(value: unknown): number | null {
 
 export async function POST(request: NextRequest) {
   try {
+    const rate = consumeRequestRateLimit("group-create-ip", getRequestIp(request.headers), 10);
+    if (!rate.allowed) return NextResponse.json({ error: "Слишком много создаваемых групп. Попробуйте позже." }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
     const sessionStatus = getCurrentUserStatus(request);
     if (sessionStatus.blocked) return NextResponse.json({ error: "Пользователь заблокирован" }, { status: 403 });
     const user = sessionStatus.user;
-    const body = (await request.json()) as {
+    const body = await readJsonWithLimit<{
       expiry?: unknown;
       password?: unknown;
       maxDownloads?: unknown;
-    };
+    }>(request, 32 * 1024);
     const expiry = typeof body.expiry === "string" ? body.expiry : "never";
     if (!EXPIRY_OPTIONS.some((option) => option.value === expiry)) {
       return NextResponse.json({ error: "Некорректный срок действия ссылки" }, { status: 400 });
@@ -65,6 +69,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return NextResponse.json({ error: error.message }, { status: 413 });
     console.error("Group creation error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Ошибка создания группы файлов" },

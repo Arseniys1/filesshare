@@ -13,6 +13,7 @@ import {
 } from "@/lib/db";
 import { deleteTelegramMessage } from "@/lib/telegram";
 import { computeExpiresAt, EXPIRY_OPTIONS, hashPassword, isExpired } from "@/lib/utils";
+import { RequestBodyTooLargeError, readJsonWithLimit } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 
@@ -41,7 +42,7 @@ function parseExpiresAt(body: Record<string, unknown>): string | null | undefine
 }
 
 async function getBody(request: NextRequest): Promise<Record<string, unknown>> {
-  const body = await request.json();
+  const body = await readJsonWithLimit(request, 32 * 1024);
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Некорректное тело запроса");
   return body as Record<string, unknown>;
 }
@@ -131,6 +132,9 @@ export async function PATCH(
     updateOwnedTransfer(user.id, token, { expiresAt, maxDownloads, passwordHash });
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json({ error: "Тело запроса слишком большое" }, { status: 413 });
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка обновления" }, { status: 400 });
   }
 }

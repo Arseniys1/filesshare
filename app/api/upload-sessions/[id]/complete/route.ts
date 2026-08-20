@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUploadSessionParts, setUploadSessionResult, setUploadSessionStatus } from "@/lib/db";
 import { getAccessibleSession, assembleSession, cleanupSessionFiles, parseSessionChecksum } from "@/lib/upload-session-service";
 import { persistUploadedFile } from "@/lib/upload-service";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
@@ -19,7 +20,10 @@ export async function POST(
 
   setUploadSessionStatus(id, "assembling");
   try {
-    const body = await request.json().catch(() => ({})) as { checksum?: unknown };
+    const body = await readJsonWithLimit<{ checksum?: unknown }>(request, 16 * 1024).catch((error): { checksum?: unknown } => {
+      if (error instanceof RequestBodyTooLargeError) throw error;
+      return {};
+    });
     const checksum = parseSessionChecksum(body.checksum);
     const assembled = await assembleSession(session, checksum);
     const file = await persistUploadedFile({
@@ -44,6 +48,7 @@ export async function POST(
     return NextResponse.json({ success: true, file });
   } catch (error) {
     setUploadSessionStatus(id, "failed");
+    if (error instanceof RequestBodyTooLargeError) return NextResponse.json({ error: error.message }, { status: 413 });
     return NextResponse.json({ error: error instanceof Error ? error.message : "Не удалось завершить загрузку" }, { status: 500 });
   }
 }

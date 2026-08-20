@@ -506,6 +506,25 @@ const migrations: Migration[] = [
       db.exec("DROP TABLE IF EXISTS short_links");
     },
   },
+  {
+    id: "023_resumable_upload_quotas",
+    apply: () => {
+      if (!hasColumn("upload_sessions", "client_ip")) {
+        db.exec("ALTER TABLE upload_sessions ADD COLUMN client_ip TEXT NOT NULL DEFAULT 'direct'");
+      }
+      if (!hasColumn("upload_sessions", "reserved_bytes")) {
+        db.exec("ALTER TABLE upload_sessions ADD COLUMN reserved_bytes INTEGER NOT NULL DEFAULT 0");
+      }
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS resumable_upload_quotas (
+          ip TEXT PRIMARY KEY,
+          active_sessions INTEGER NOT NULL DEFAULT 0,
+          reserved_bytes INTEGER NOT NULL DEFAULT 0,
+          updated_at INTEGER NOT NULL
+        );
+      `);
+    },
+  },
 ];
 
 db.exec("BEGIN IMMEDIATE");
@@ -759,6 +778,8 @@ export interface UploadSessionRecord {
   pin_hash: string | null;
   one_time: number;
   max_recipients: number | null;
+  client_ip: string;
+  reserved_bytes: number;
 }
 
 export interface UploadSessionPartRecord {
@@ -815,6 +836,10 @@ export function getUserByEmail(email: string): UserRecord | undefined {
   return db
     .prepare("SELECT * FROM users WHERE email = ?")
     .get(email) as UserRecord | undefined;
+}
+
+export function getUserCount(): number {
+  return (db.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number }).count;
 }
 
 export function getUserById(id: number): UserRecord | undefined {
@@ -1709,21 +1734,84 @@ export function markNotificationFailed(id: number, error: string): void {
   ).run(error.slice(0, 1000), Date.now() + 5 * 60 * 1000, id);
 }
 
-export function createUploadSession(data: Omit<UploadSessionRecord, "created_at" | "updated_at" | "completed_at" | "result_json" | "status" | "pin_hash" | "one_time" | "max_recipients"> & { status?: UploadSessionRecord["status"] }): UploadSessionRecord {
+export class UploadSessionQuotaError extends Error {
+  constructor(public retryAfterSeconds = 60) {
+    super("Лимит незавершённых загрузок для вашего IP-адреса исчерпан");
+    this.name = "UploadSessionQuotaError";
+  }
+}
+
+const MAX_RESUMABLE_SESSIONS_PER_IP = 3;
+const MAX_RESUMABLE_RESERVED_BYTES_PER_IP = 10 * 1024 * 1024 * 1024;
+
+type NewUploadSession = Omit<UploadSessionRecord, "created_at" | "updated_at" | "completed_at" | "result_json" | "status" | "pin_hash" | "one_time" | "max_recipients" | "reserved_bytes" | "client_ip"> & {
+  status?: UploadSessionRecord["status"];
+  client_ip?: string;
+  reserved_bytes?: number;
+};
+
+function reserveResumableUploadQuota(ip: string, bytes: number): void {
   const now = Date.now();
   db.prepare(
-    `INSERT INTO upload_sessions
-     (id, owner_user_id, anonymous_token, file_name, mime_type, total_size, chunk_size, total_chunks,
-     checksum, content_encryption, original_size, expiry, expires_at, max_downloads, password_hash,
-      group_token, status, upload_root, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    data.id, data.owner_user_id, data.anonymous_token, data.file_name, data.mime_type,
-    data.total_size, data.chunk_size, data.total_chunks, data.checksum, data.content_encryption,
-    data.original_size, data.expiry, data.expires_at, data.max_downloads, data.password_hash,
-    data.group_token, data.status ?? "active", data.upload_root, now, now
-  );
-  return getUploadSession(data.id)!;
+    `INSERT OR IGNORE INTO resumable_upload_quotas (ip, active_sessions, reserved_bytes, updated_at)
+     VALUES (?, 0, 0, ?)`
+  ).run(ip, now);
+  const quota = db.prepare(
+    "SELECT active_sessions, reserved_bytes FROM resumable_upload_quotas WHERE ip = ?"
+  ).get(ip) as { active_sessions: number; reserved_bytes: number };
+  if (quota.active_sessions >= MAX_RESUMABLE_SESSIONS_PER_IP || quota.reserved_bytes + bytes > MAX_RESUMABLE_RESERVED_BYTES_PER_IP) {
+    throw new UploadSessionQuotaError();
+  }
+  db.prepare(
+    `UPDATE resumable_upload_quotas
+     SET active_sessions = active_sessions + 1,
+         reserved_bytes = reserved_bytes + ?,
+         updated_at = ?
+     WHERE ip = ?`
+  ).run(bytes, now, ip);
+}
+
+function releaseResumableUploadQuota(id: string): void {
+  const session = db.prepare(
+    "SELECT client_ip, reserved_bytes FROM upload_sessions WHERE id = ?"
+  ).get(id) as { client_ip: string; reserved_bytes: number } | undefined;
+  if (!session || session.reserved_bytes <= 0) return;
+  const now = Date.now();
+  db.transaction(() => {
+    db.prepare(
+      `UPDATE resumable_upload_quotas
+       SET active_sessions = MAX(active_sessions - 1, 0),
+           reserved_bytes = MAX(reserved_bytes - ?, 0),
+           updated_at = ?
+       WHERE ip = ?`
+    ).run(session.reserved_bytes, now, session.client_ip);
+    db.prepare("UPDATE upload_sessions SET reserved_bytes = 0 WHERE id = ?").run(id);
+  })();
+}
+
+export function createUploadSession(data: NewUploadSession): UploadSessionRecord {
+  const now = Date.now();
+  const clientIp = data.client_ip?.trim() || "direct";
+  const reservedBytes = data.reserved_bytes ?? data.total_size;
+  if (!Number.isSafeInteger(reservedBytes) || reservedBytes < 1) {
+    throw new Error("Некорректный резерв загрузки");
+  }
+  return db.transaction(() => {
+    reserveResumableUploadQuota(clientIp, reservedBytes);
+    db.prepare(
+      `INSERT INTO upload_sessions
+       (id, owner_user_id, anonymous_token, file_name, mime_type, total_size, chunk_size, total_chunks,
+       checksum, content_encryption, original_size, expiry, expires_at, max_downloads, password_hash,
+        group_token, status, upload_root, created_at, updated_at, client_ip, reserved_bytes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      data.id, data.owner_user_id, data.anonymous_token, data.file_name, data.mime_type,
+      data.total_size, data.chunk_size, data.total_chunks, data.checksum, data.content_encryption,
+      data.original_size, data.expiry, data.expires_at, data.max_downloads, data.password_hash,
+      data.group_token, data.status ?? "active", data.upload_root, now, now, clientIp, reservedBytes
+    );
+    return getUploadSession(data.id)!;
+  })();
 }
 
 export function getUploadSession(id: string): UploadSessionRecord | undefined {
@@ -1759,15 +1847,18 @@ export function setUploadSessionStatus(
   db.prepare(
     "UPDATE upload_sessions SET status = ?, updated_at = ?, completed_at = CASE WHEN ? = 'completed' THEN ? ELSE completed_at END WHERE id = ?"
   ).run(status, Date.now(), status, Date.now(), id);
+  if (status === "failed" || status === "cancelled") releaseResumableUploadQuota(id);
 }
 
 export function setUploadSessionResult(id: string, result: unknown): void {
   db.prepare(
     "UPDATE upload_sessions SET status = 'completed', result_json = ?, updated_at = ?, completed_at = ? WHERE id = ?"
   ).run(JSON.stringify(result), Date.now(), Date.now(), id);
+  releaseResumableUploadQuota(id);
 }
 
 export function deleteUploadSession(id: string): void {
+  releaseResumableUploadQuota(id);
   db.prepare("DELETE FROM upload_sessions WHERE id = ?").run(id);
 }
 
@@ -1849,6 +1940,12 @@ export function consumeAccessAttempt(rateKey: string, maxAttempts = 10, windowMs
 
 export function clearAccessAttempts(rateKey: string): void {
   db.prepare("DELETE FROM access_rate_limits WHERE rate_key = ?").run(rateKey);
+}
+
+export function purgeAccessRateLimits(maxAgeMs = 24 * 60 * 60 * 1000): number {
+  return db.prepare(
+    "DELETE FROM access_rate_limits WHERE COALESCE(blocked_until, window_started_at) < ?"
+  ).run(Date.now() - maxAgeMs).changes;
 }
 
 export function getRecentFiles(limit = 20): FileRecord[] {

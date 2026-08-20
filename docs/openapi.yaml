@@ -50,8 +50,11 @@ paths:
                 password: { type: string, maxLength: 1024 }
                 maxDownloads: { type: integer, minimum: 1, maximum: 1000000 }
                 groupToken: { type: string }
-                contentEncryption: { type: string, enum: [none, e2ee-v1] }
-                originalSize: { type: integer, minimum: 1 }
+                contentEncryption:
+                  type: string
+                  enum: [none, e2ee-v1]
+                  description: "Для e2ee-v1 ключ шифрования добавляется клиентом в fragment shareUrl после символа #."
+                originalSize: { type: integer, minimum: 1, description: Размер исходного файла для E2EE. }
       responses:
         "200": { $ref: "#/components/responses/Upload" }
         "400": { $ref: "#/components/responses/Error" }
@@ -247,13 +250,16 @@ components:
         fileName: { type: string, maxLength: 255 }
         mimeType: { type: string, maxLength: 255 }
         totalSize: { type: integer, minimum: 1 }
-        originalSize: { type: integer, minimum: 1 }
+        originalSize: { type: integer, minimum: 1, description: Размер исходного файла для E2EE. }
         checksum: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
         expiry: { $ref: "#/components/schemas/Expiry" }
         password: { type: string, maxLength: 1024 }
         maxDownloads: { type: integer, minimum: 1, maximum: 1000000 }
         groupToken: { type: string }
-        contentEncryption: { type: string, enum: [none, e2ee-v1] }
+        contentEncryption:
+          type: string
+          enum: [none, e2ee-v1]
+          description: "Для e2ee-v1 ключ шифрования добавляется клиентом в fragment shareUrl после символа #."
     TransferUpdateRequest:
       type: object
       properties:

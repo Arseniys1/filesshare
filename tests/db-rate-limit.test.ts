@@ -121,4 +121,73 @@ describe("database invariants", () => {
     rateLimit.abandonUploadLease(second);
     rateLimit.abandonUploadLease(third);
   });
+
+  it("limits resumable sessions per IP and releases the reservation", () => {
+    const sessions = Array.from({ length: 3 }, (_, index) => dbModule.createUploadSession({
+      id: `quota-session-${index}`,
+      owner_user_id: null,
+      anonymous_token: `quota-token-${index}`,
+      file_name: "quota.bin",
+      mime_type: "application/octet-stream",
+      total_size: 1,
+      chunk_size: 1,
+      total_chunks: 1,
+      checksum: null,
+      content_encryption: "none",
+      original_size: 1,
+      expiry: "never",
+      expires_at: null,
+      max_downloads: null,
+      password_hash: null,
+      group_token: null,
+      upload_root: "/tmp",
+      client_ip: "198.51.100.20",
+    }));
+
+    expect(() => dbModule.createUploadSession({
+      id: "quota-session-3",
+      owner_user_id: null,
+      anonymous_token: "quota-token-3",
+      file_name: "quota.bin",
+      mime_type: "application/octet-stream",
+      total_size: 1,
+      chunk_size: 1,
+      total_chunks: 1,
+      checksum: null,
+      content_encryption: "none",
+      original_size: 1,
+      expiry: "never",
+      expires_at: null,
+      max_downloads: null,
+      password_hash: null,
+      group_token: null,
+      upload_root: "/tmp",
+      client_ip: "198.51.100.20",
+    })).toThrow(dbModule.UploadSessionQuotaError);
+
+    dbModule.deleteUploadSession(sessions[0].id);
+    expect(() => dbModule.createUploadSession({
+      id: "quota-session-3",
+      owner_user_id: null,
+      anonymous_token: "quota-token-3",
+      file_name: "quota.bin",
+      mime_type: "application/octet-stream",
+      total_size: 1,
+      chunk_size: 1,
+      total_chunks: 1,
+      checksum: null,
+      content_encryption: "none",
+      original_size: 1,
+      expiry: "never",
+      expires_at: null,
+      max_downloads: null,
+      password_hash: null,
+      group_token: null,
+      upload_root: "/tmp",
+      client_ip: "198.51.100.20",
+    })).not.toThrow();
+
+    for (const session of sessions.slice(1)) dbModule.deleteUploadSession(session.id);
+    dbModule.deleteUploadSession("quota-session-3");
+  });
 });

@@ -31,8 +31,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   await mkdir(session.upload_root, { recursive: true });
   const hash = crypto.createHash("sha256");
   const input = Readable.fromWeb(request.body as Parameters<typeof Readable.fromWeb>[0]);
+  let actualSize = 0;
   const hashing = new (class extends Transform {
     _transform(chunk: Buffer, _encoding: BufferEncoding, callback: (error?: Error | null, data?: Buffer) => void) {
+      if (actualSize + chunk.length > expectedSize) {
+        callback(new Error("Размер части превышает заявленный"));
+        return;
+      }
+      actualSize += chunk.length;
       hash.update(chunk);
       callback(null, chunk);
     }
@@ -40,12 +46,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     await pipeline(input, hashing, createWriteStream(partPath, { flags: "w" }));
     const actualChecksum = hash.digest("hex");
-    const actualSize = (await stat(partPath)).size;
-    if (actualSize !== expectedSize || actualChecksum !== expectedChecksum) {
+    const writtenSize = (await stat(partPath)).size;
+    if (writtenSize !== expectedSize || actualChecksum !== expectedChecksum) {
       await rm(partPath, { force: true });
       return apiError("part_checksum_mismatch", "Контрольная сумма части не совпадает", 422);
     }
-    upsertUploadSessionPart({ session_id: id, part_index: index, size: actualSize, checksum: actualChecksum, path: partPath, created_at: Date.now() });
+    upsertUploadSessionPart({ session_id: id, part_index: index, size: writtenSize, checksum: actualChecksum, path: partPath, created_at: Date.now() });
     return apiOk({ success: true, index, checksum: actualChecksum });
   } catch (error) {
     await rm(partPath, { force: true }).catch(() => {});

@@ -110,7 +110,7 @@ export async function createSessionRoot(): Promise<string> {
   return mkdtemp(path.join(root, "filesshare-session-"));
 }
 
-export async function cleanupStaleUploadSessions(maxAgeMs = 24 * 60 * 60 * 1000): Promise<number> {
+export async function cleanupStaleUploadSessions(maxAgeMs = 2 * 60 * 60 * 1000): Promise<number> {
   const sessions = getStaleUploadSessions(Date.now() - maxAgeMs);
   for (const session of sessions) {
     await rm(session.upload_root, { recursive: true, force: true }).catch(() => {});

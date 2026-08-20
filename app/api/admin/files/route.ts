@@ -10,6 +10,7 @@ import {
   setAdminFileRevoked,
 } from "@/lib/db";
 import { deleteTelegramMessage } from "@/lib/telegram";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 
@@ -38,7 +39,7 @@ export async function PATCH(request: NextRequest) {
   if (user.role !== "admin") return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
 
   try {
-    const body = await request.json() as { token?: unknown; action?: unknown };
+    const body = await readJsonWithLimit<{ token?: unknown; action?: unknown }>(request, 16 * 1024);
     if (typeof body.token !== "string" || !body.token) {
       return NextResponse.json({ error: "Токен файла обязателен" }, { status: 400 });
     }
@@ -57,6 +58,7 @@ export async function PATCH(request: NextRequest) {
     });
     return NextResponse.json({ success: true, revoked });
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return NextResponse.json({ error: error.message }, { status: 413 });
     return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка изменения файла" }, { status: 400 });
   }
 }

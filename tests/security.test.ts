@@ -4,6 +4,8 @@ import {
   verifyDownloadGrant,
 } from "@/lib/download-grant";
 import { hashPassword, verifyPassword } from "@/lib/utils";
+import { isValidBootstrapToken } from "@/lib/bootstrap";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 describe("password migration", () => {
   it("stores new passwords with salted scrypt", async () => {
@@ -34,5 +36,25 @@ describe("download grants", () => {
     const grant = createDownloadGrant(token);
     expect(verifyDownloadGrant(token, grant.value)).toBe(true);
     expect(verifyDownloadGrant("Zbcdef123456", grant.value)).toBe(false);
+  });
+});
+
+describe("request hardening", () => {
+  it("compares the production bootstrap token safely", () => {
+    const previous = process.env.BOOTSTRAP_ADMIN_TOKEN;
+    process.env.BOOTSTRAP_ADMIN_TOKEN = "bootstrap-test-token";
+    expect(isValidBootstrapToken("bootstrap-test-token")).toBe(true);
+    expect(isValidBootstrapToken("wrong-token")).toBe(false);
+    if (previous === undefined) delete process.env.BOOTSTRAP_ADMIN_TOKEN;
+    else process.env.BOOTSTRAP_ADMIN_TOKEN = previous;
+  });
+
+  it("rejects JSON bodies above the configured limit", async () => {
+    const request = new Request("http://localhost/api/test", {
+      method: "POST",
+      body: JSON.stringify({ value: "x".repeat(32) }),
+      headers: { "content-type": "application/json" },
+    });
+    await expect(readJsonWithLimit(request, 16)).rejects.toBeInstanceOf(RequestBodyTooLargeError);
   });
 });

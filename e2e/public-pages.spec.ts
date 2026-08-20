@@ -40,6 +40,8 @@ test.describe("публичные страницы", () => {
     await expect(apiNavigation.getByRole("link").first()).toHaveAttribute("href", "#api-method-0");
     await expect(page.getByText("X-Chunk-SHA256", { exact: false })).toBeVisible();
     await expect(page.getByText("expiryWarningDays", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "E2EE-ссылки" })).toBeVisible();
+    await expect(page.getByText("https://your-domain.example/f/file-token#<E2EE_KEY>", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Скачать OpenAPI YAML" })).toHaveAttribute(
       "href",
       "/api/docs/openapi"

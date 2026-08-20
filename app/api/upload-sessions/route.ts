@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/utils";
 import { getCurrentUserStatus } from "@/lib/auth";
-import { createUploadSession, getActiveStorageAccounts, getActiveUploadSessionCount, getUserById, getUserQuotaUsage } from "@/lib/db";
+import { createUploadSession, getActiveStorageAccounts, getActiveUploadSessionCount, getUserById, getUserQuotaUsage, UploadSessionQuotaError } from "@/lib/db";
 import {
   createSessionRoot,
   parseSessionChecksum,
@@ -17,13 +17,15 @@ import {
 import { getMaxFileSizeBytes } from "@/lib/telegram-config";
 import { getE2EEEncryptedSize, E2EE_CHUNK_SIZE } from "@/lib/e2ee-client";
 import { validateUploadFileType } from "@/lib/file-validation";
+import { getClientIp } from "@/lib/upload-rate-limit";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   let uploadRoot: string | null = null;
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await readJsonWithLimit<Record<string, unknown>>(request, 64 * 1024);
     if (getActiveStorageAccounts().length === 0) throw new Error("Сервис хранения пока не настроен. Обратитесь к администратору.");
     const sessionStatus = getCurrentUserStatus(request);
     if (sessionStatus.blocked) throw new Error("Пользователь заблокирован");
@@ -90,6 +92,7 @@ export async function POST(request: NextRequest) {
       password_hash: passwordHash,
       group_token: groupToken,
       upload_root: uploadRoot,
+      client_ip: getClientIp(request.headers),
     });
     const response = NextResponse.json({
       success: true,
@@ -113,6 +116,12 @@ export async function POST(request: NextRequest) {
     }
     return response;
   } catch (error) {
+    if (error instanceof UploadSessionQuotaError) {
+      return NextResponse.json({ error: error.message }, { status: 429, headers: { "Retry-After": String(error.retryAfterSeconds) } });
+    }
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json({ error: error.message }, { status: 413 });
+    }
     if (uploadRoot) {
       const { rm } = await import("node:fs/promises");
       await rm(uploadRoot, { recursive: true, force: true }).catch(() => {});

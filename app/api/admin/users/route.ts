@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminAuditEvent, getAdminUsersPage, getUserById, updateUserAdminSettings } from "@/lib/db";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 
@@ -42,7 +43,7 @@ export async function PATCH(request: NextRequest) {
   if (authError) return authError;
   const current = getCurrentUser(request)!;
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body = await readJsonWithLimit<Record<string, unknown>>(request, 32 * 1024);
     const id = Number(body.id);
     const target = getUserById(id);
     if (!target) return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 });
@@ -62,6 +63,7 @@ export async function PATCH(request: NextRequest) {
     createAdminAuditEvent({ adminUserId: current.id, action: "update_user_limits", targetType: "user", targetId: String(id), metadata: { role: data.role, blocked: data.blocked_at !== undefined, limitsChanged: true } });
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return NextResponse.json({ error: error.message }, { status: 413 });
     return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка изменения пользователя" }, { status: 400 });
   }
 }

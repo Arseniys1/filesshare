@@ -14,6 +14,7 @@ import {
   isSafeFileToken,
 } from "@/lib/download-grant";
 import { isExpired, hashPassword, verifyPassword } from "@/lib/utils";
+import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 
@@ -49,7 +50,7 @@ export async function POST(
       return NextResponse.json({ error: "Для файла не требуется пароль" }, { status: 400 });
     }
 
-    const body = (await request.json()) as { password?: unknown };
+    const body = await readJsonWithLimit<{ password?: unknown }>(request, 16 * 1024);
     const password = typeof body.password === "string" ? body.password : "";
     if (!password || password.length > 1024) {
       return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
@@ -86,6 +87,7 @@ export async function POST(
     });
     return response;
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) return NextResponse.json({ error: error.message }, { status: 413 });
     console.error("File access error:", error);
     return NextResponse.json({ error: "Ошибка проверки пароля" }, { status: 500 });
   }

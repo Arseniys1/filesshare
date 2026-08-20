@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { formatFileSize } from "@/lib/utils";
+import Pagination from "@/components/Pagination";
 import ThemedSelect from "@/components/ThemedSelect";
 
 interface AdminUser {
@@ -29,49 +30,9 @@ interface PaginationState {
 
 const PAGE_SIZE = 20;
 
-function Pagination({
-  pagination,
-  onPageChange,
-}: {
-  pagination: PaginationState;
-  onPageChange: (page: number) => void;
-}) {
-  const t = useTranslations("adminPages");
-  if (pagination.total <= pagination.limit) return null;
-
-  return (
-    <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-      <span className="text-gray-500">
-        {t("pagination", {
-          page: pagination.page,
-          totalPages: pagination.totalPages,
-          total: pagination.total,
-        })}
-      </span>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => onPageChange(pagination.page - 1)}
-          disabled={pagination.page <= 1}
-          className="rounded-lg bg-white/5 px-3 py-2 text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          ← {t("back")}
-        </button>
-        <button
-          type="button"
-          onClick={() => onPageChange(pagination.page + 1)}
-          disabled={pagination.page >= pagination.totalPages}
-          className="rounded-lg bg-white/5 px-3 py-2 text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {t("forward")} →
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function AdminUsersPage() {
   const t = useTranslations("adminPages");
+  const dashboardT = useTranslations("dashboard");
   const locale = useLocale();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [pagination, setPagination] = useState<PaginationState>({
@@ -165,6 +126,19 @@ export default function AdminUsersPage() {
     setPage(1);
   };
 
+  const paginationLabels = {
+    ariaLabel: t("usersTitle"),
+    shown: dashboardT("shown", {
+      from: (pagination.page - 1) * pagination.limit + 1,
+      to: Math.min(pagination.page * pagination.limit, pagination.total),
+      total: pagination.total,
+    }),
+    previousPage: dashboardT("previousPage"),
+    nextPage: dashboardT("nextPage"),
+    back: dashboardT("back"),
+    forward: dashboardT("forward"),
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -226,6 +200,15 @@ export default function AdminUsersPage() {
           )}
         </form>
       </div>
+
+      {pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          labels={paginationLabels}
+          onPageChange={setPage}
+        />
+      )}
 
       <div className="glass rounded-2xl p-5">
         {loading ? (
@@ -316,8 +299,16 @@ export default function AdminUsersPage() {
             )}
           </div>
         )}
-        <Pagination pagination={pagination} onPageChange={setPage} />
       </div>
+
+      {pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          labels={paginationLabels}
+          onPageChange={setPage}
+        />
+      )}
     </div>
   );
 }

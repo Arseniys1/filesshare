@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { formatDate } from "@/lib/utils";
+import Pagination from "@/components/Pagination";
 import UserAvatar from "@/components/UserAvatar";
 import ThemedCheckbox from "@/components/ThemedCheckbox";
 import ThemedSelect from "@/components/ThemedSelect";
@@ -194,6 +195,19 @@ export default function ProfilePage() {
     }
   };
 
+  const paginationLabels = {
+    ariaLabel: t("apiKeys"),
+    shown: dashboardT("shown", {
+      from: (apiKeys.page - 1) * apiKeys.pageSize + 1,
+      to: Math.min(apiKeys.page * apiKeys.pageSize, apiKeys.total),
+      total: apiKeys.total,
+    }),
+    previousPage: dashboardT("previousPage"),
+    nextPage: dashboardT("nextPage"),
+    back: dashboardT("back"),
+    forward: dashboardT("forward"),
+  };
+
   if (unauthenticated) {
     return (
       <div className="mx-auto max-w-md px-4 py-32">
@@ -378,6 +392,17 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {apiKeys.totalPages > 1 && (
+          <div className="mt-5">
+            <Pagination
+              page={apiKeys.page}
+              totalPages={apiKeys.totalPages}
+              labels={paginationLabels}
+              onPageChange={setPage}
+            />
+          </div>
+        )}
+
         {loading ? (
           <p className="mt-5 text-sm text-gray-500">{t("loadingKeys")}</p>
         ) : apiKeys.items.length > 0 ? (
@@ -414,26 +439,13 @@ export default function ProfilePage() {
         )}
 
         {apiKeys.totalPages > 1 && (
-          <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4 text-sm">
-            <button
-              type="button"
-              onClick={() => setPage((current) => current - 1)}
-              disabled={page <= 1 || loading}
-              className="rounded-lg px-3 py-2 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
-            >
-              {t("back")}
-            </button>
-            <span className="text-xs text-gray-500">
-              {t("page", { page: apiKeys.page, total: apiKeys.totalPages })}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPage((current) => current + 1)}
-              disabled={page >= apiKeys.totalPages || loading}
-              className="rounded-lg px-3 py-2 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
-            >
-              {t("forward")}
-            </button>
+          <div className="mt-5">
+            <Pagination
+              page={apiKeys.page}
+              totalPages={apiKeys.totalPages}
+              labels={paginationLabels}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </section>

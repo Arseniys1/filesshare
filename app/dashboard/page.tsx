@@ -13,6 +13,7 @@ import {
 import { copyImageToClipboard } from "@/lib/clipboard";
 import ThemedCheckbox from "@/components/ThemedCheckbox";
 import ThemedSelect from "@/components/ThemedSelect";
+import Pagination from "@/components/Pagination";
 
 type Status = "active" | "expired" | "revoked" | "password" | "e2ee" | "";
 
@@ -202,106 +203,6 @@ function statusLabel(
   return labels.active;
 }
 
-function getPaginationPages(
-  totalPages: number,
-  currentPage: number,
-): Array<number | "ellipsis"> {
-  if (totalPages <= 7)
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-
-  const pages: Array<number | "ellipsis"> = [1];
-  if (currentPage > 3) pages.push("ellipsis");
-  for (
-    let pageNumber = Math.max(2, currentPage - 1);
-    pageNumber <= Math.min(totalPages - 1, currentPage + 1);
-    pageNumber += 1
-  ) {
-    pages.push(pageNumber);
-  }
-  if (currentPage < totalPages - 2) pages.push("ellipsis");
-  pages.push(totalPages);
-  return pages;
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  totalPages,
-  onPageChange,
-}: PaginationProps) {
-  const t = useTranslations("dashboard");
-
-  if (totalPages <= 1) return null;
-
-  return (
-    <nav
-      aria-label={t("files")}
-      className="flex flex-col items-center justify-between gap-3 sm:flex-row"
-    >
-      <p className="text-sm text-gray-500">
-        {t("shown", {
-          from: (page - 1) * pageSize + 1,
-          to: Math.min(page * pageSize, total),
-          total,
-        })}
-      </p>
-      <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 sm:justify-end">
-        <button
-          type="button"
-          aria-label={t("previousPage")}
-          disabled={page <= 1}
-          onClick={() => onPageChange(Math.max(page - 1, 1))}
-          className="rounded-xl bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {t("back")}
-        </button>
-        <div className="flex items-center gap-1" aria-label={t("files")}>
-          {getPaginationPages(totalPages, page).map((pageNumber, index) =>
-            pageNumber === "ellipsis" ? (
-              <span
-                key={`ellipsis-${index}`}
-                aria-hidden="true"
-                className="px-1 text-gray-500"
-              >
-                …
-              </span>
-            ) : (
-              <button
-                key={pageNumber}
-                type="button"
-                aria-label={`${pageNumber}`}
-                aria-current={pageNumber === page ? "page" : undefined}
-                onClick={() => onPageChange(pageNumber)}
-                className={`h-9 min-w-9 rounded-xl px-2 text-sm transition-colors ${pageNumber === page ? "bg-accent text-white" : "bg-white/5 text-gray-300 hover:bg-white/10"}`}
-              >
-                {pageNumber}
-              </button>
-            ),
-          )}
-        </div>
-        <button
-          type="button"
-          aria-label={t("nextPage")}
-          disabled={page >= totalPages}
-          onClick={() => onPageChange(Math.min(page + 1, totalPages))}
-          className="rounded-xl bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {t("forward")}
-        </button>
-      </div>
-    </nav>
-  );
-}
-
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const navT = useTranslations("nav");
@@ -461,6 +362,18 @@ export default function DashboardPage() {
   }
 
   const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+  const paginationLabels = {
+    ariaLabel: t("files"),
+    shown: t("shown", {
+      from: (page - 1) * pageSize + 1,
+      to: Math.min(page * pageSize, total),
+      total,
+    }),
+    previousPage: t("previousPage"),
+    nextPage: t("nextPage"),
+    back: t("back"),
+    forward: t("forward"),
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-3 py-8 animate-fade-in sm:px-4 sm:py-12">
@@ -554,9 +467,8 @@ export default function DashboardPage() {
         <div className="mb-6">
           <Pagination
             page={page}
-            pageSize={pageSize}
-            total={total}
             totalPages={totalPages}
+            labels={paginationLabels}
             onPageChange={setPage}
           />
         </div>
@@ -722,9 +634,8 @@ export default function DashboardPage() {
         <div className="mt-6">
           <Pagination
             page={page}
-            pageSize={pageSize}
-            total={total}
             totalPages={totalPages}
+            labels={paginationLabels}
             onPageChange={setPage}
           />
         </div>

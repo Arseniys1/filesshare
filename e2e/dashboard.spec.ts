@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { fulfillJson, mockAuth, mockUser } from "./helpers";
 
+test.use({ locale: "ru" });
+
 const transfer = {
   kind: "file" as const,
   token: "demo-token",
@@ -32,7 +34,7 @@ test.describe("личный кабинет", () => {
 
     await page.goto("/dashboard");
 
-    await expect(page.getByRole("heading", { name: "Личный кабинет" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Мои файлы" })).toBeVisible();
     await expect(page.getByText("Войдите, чтобы увидеть свои передачи.")).toBeVisible();
     await expect(page.getByRole("main").getByRole("link", { name: "Войти", exact: true })).toHaveAttribute(
       "href",
@@ -102,19 +104,15 @@ test.describe("личный кабинет", () => {
     });
 
     await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: "Личный кабинет" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "user@example.com" })).toHaveAttribute(
+    await expect(page.getByRole("heading", { name: "Мои файлы" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "user", exact: true })).toHaveAttribute(
       "href",
       "/profile"
     );
     await expect(page.getByText("report.pdf", { exact: true })).toBeVisible();
     await expect(page.getByText("Передач", { exact: true })).toBeVisible();
 
-    const allNotifications = page.getByRole("checkbox", { name: "Все уведомления" });
-    await allNotifications.click();
-    await expect(allNotifications).not.toBeChecked();
-
-    const statusSelect = page.getByRole("button", { name: "Фильтр по статусу" });
+    const statusSelect = page.getByRole("button", { name: "Все статусы" });
     await statusSelect.click();
     await page.getByRole("option", { name: "С паролем" }).click();
     await expect(statusSelect).toContainText("С паролем");
@@ -133,7 +131,7 @@ test.describe("личный кабинет", () => {
 
     await page.getByRole("button", { name: "Изменить", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Настройки ссылки" })).toBeVisible();
-    await page.getByRole("button", { name: "Срок действия" }).click();
+    await page.getByRole("button", { name: "Действует до" }).click();
     await page.getByRole("option", { name: "7 дней" }).click();
     await page.locator('input[type="password"][placeholder="Оставить текущий"]').fill(
       "new-link-password"
@@ -178,11 +176,11 @@ test.describe("личный кабинет", () => {
 
     await page.goto("/dashboard");
     await expect(page.getByText("page-one.pdf", { exact: true })).toBeVisible();
-    await expect(page.getByText("Показано 1–20 из 41")).toBeVisible();
+    await expect(page.getByText("Показано 1–20 из 41").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Страница 2" }).first().click();
+    await page.getByRole("button", { name: "2", exact: true }).first().click();
     await expect(page.getByText("page-two.pdf", { exact: true })).toBeVisible();
-    await expect(page.getByText("Показано 21–40 из 41")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Предыдущая страница" })).toBeEnabled();
+    await expect(page.getByText("Показано 21–40 из 41").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Предыдущая страница" }).first()).toBeEnabled();
   });
 });

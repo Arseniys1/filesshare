@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { fulfillJson, mockAuth, mockUser } from "./helpers";
 
+test.use({ locale: "ru" });
+
 test.describe("профиль пользователя", () => {
   test("неавторизованный пользователь видит приглашение ко входу", async ({ page }) => {
     await mockAuth(page, null);
@@ -64,13 +66,14 @@ test.describe("профиль пользователя", () => {
     await expect(page.getByRole("heading", { name: "Профиль" })).toBeVisible();
     await expect(page.getByRole("main").getByText("user@example.com", { exact: true })).toBeVisible();
     await expect(page.getByText("Integration 1", { exact: true })).toBeVisible();
-    await expect(page.getByText("Страница 1 из 2")).toBeVisible();
+    await expect(page.getByText("Показано 1–10 из 11").first()).toBeVisible();
+    await expect(page.getByText("Показано 1–10 из 11")).toHaveCount(2);
 
-    await page.getByRole("button", { name: "Вперёд" }).click();
-    await expect(page.getByText("Страница 2 из 2")).toBeVisible();
+    await page.getByRole("button", { name: "Следующая страница" }).first().click();
+    await expect(page.getByText("Показано 11–11 из 11").first()).toBeVisible();
     await expect(page.getByText("Integration 11", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Назад" }).click();
+    await page.getByRole("button", { name: "Предыдущая страница" }).first().click();
     await page.getByPlaceholder("Название интеграции").fill("New integration");
     await page.getByRole("button", { name: "Создать ключ" }).click();
     await expect(page.getByText("fs_live_secret_only_once")).toBeVisible();

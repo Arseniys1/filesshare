@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
       revoked: item.revoked_at !== null,
     })),
     total: result.total,
-    page: Math.max(Number.isFinite(page) ? page : 1, 1),
-    pageSize: Math.min(Math.max(Number.isFinite(pageSize) ? pageSize : 20, 1), 100),
+    page: result.page,
+    pageSize: result.pageSize,
+    totalPages: result.totalPages,
   });
 }

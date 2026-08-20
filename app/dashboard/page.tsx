@@ -111,6 +111,19 @@ function statusLabel(item: Transfer): string {
   return "Активна";
 }
 
+function getPaginationPages(totalPages: number, currentPage: number): Array<number | "ellipsis"> {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+
+  const pages: Array<number | "ellipsis"> = [1];
+  if (currentPage > 3) pages.push("ellipsis");
+  for (let pageNumber = Math.max(2, currentPage - 1); pageNumber <= Math.min(totalPages - 1, currentPage + 1); pageNumber += 1) {
+    pages.push(pageNumber);
+  }
+  if (currentPage < totalPages - 2) pages.push("ellipsis");
+  pages.push(totalPages);
+  return pages;
+}
+
 export default function DashboardPage() {
   const [items, setItems] = useState<Transfer[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -152,6 +165,7 @@ export default function DashboardPage() {
       if (!filesResponse.ok) throw new Error(filesData.error || "Не удалось загрузить файлы");
       setItems(filesData.items);
       setTotal(filesData.total);
+      if (Number.isInteger(filesData.page) && filesData.page >= 1) setPage(filesData.page);
       setStats(statsData);
       if (notificationsResponse.ok) setNotifications(notificationsData);
     } catch (loadError) {
@@ -363,7 +377,51 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {totalPages > 1 && <div className="flex items-center justify-center gap-3 mt-6"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="px-4 py-2 rounded-xl bg-white/5 text-sm disabled:opacity-40">Назад</button><span className="text-sm text-gray-400">{page} / {totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)} className="px-4 py-2 rounded-xl bg-white/5 text-sm disabled:opacity-40">Вперёд</button></div>}
+      {totalPages > 1 && (
+        <nav aria-label="Пагинация файлов" className="mt-6 flex flex-col items-center justify-between gap-3 sm:flex-row">
+          <p className="text-sm text-gray-500">
+            Показано {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} из {total}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              aria-label="Предыдущая страница"
+              disabled={page <= 1}
+              onClick={() => setPage((value) => value - 1)}
+              className="rounded-xl bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Назад
+            </button>
+            <div className="flex items-center gap-1" aria-label="Страницы списка">
+              {getPaginationPages(totalPages, page).map((pageNumber, index) => (
+                pageNumber === "ellipsis" ? (
+                  <span key={`ellipsis-${index}`} aria-hidden="true" className="px-1 text-gray-500">…</span>
+                ) : (
+                  <button
+                    key={pageNumber}
+                    type="button"
+                    aria-label={`Страница ${pageNumber}`}
+                    aria-current={pageNumber === page ? "page" : undefined}
+                    onClick={() => setPage(pageNumber)}
+                    className={`h-9 min-w-9 rounded-xl px-2 text-sm transition-colors ${pageNumber === page ? "bg-accent text-white" : "bg-white/5 text-gray-300 hover:bg-white/10"}`}
+                  >
+                    {pageNumber}
+                  </button>
+                )
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-label="Следующая страница"
+              disabled={page >= totalPages}
+              onClick={() => setPage((value) => value + 1)}
+              className="rounded-xl bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Вперёд
+            </button>
+          </div>
+        </nav>
+      )}
 
       {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl"><h2 className="text-xl font-semibold mb-4">QR-код</h2><div className="rounded-xl bg-white p-3 inline-block"><Image src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="text-sm text-gray-400 mt-4 break-all">{qr.name}</p><button type="button" onClick={() => setQr(null)} className="mt-5 w-full py-2.5 rounded-xl bg-white/5 text-gray-300">Закрыть</button></div></div>}
     </div>

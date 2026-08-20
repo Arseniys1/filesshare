@@ -147,4 +147,40 @@ test.describe("личный кабинет", () => {
     await page.getByRole("button", { name: "Удалить", exact: true }).click();
     await expect(page.getByText("Передач пока нет")).toBeVisible();
   });
+
+  test("переключает страницы списка передач", async ({ page }) => {
+    await mockUser(page);
+
+    await page.route("**/api/user/files**", async (route) => {
+      if (route.request().method() !== "GET") {
+        await fulfillJson(route, {}, 405);
+        return;
+      }
+
+      const currentPage = Number(new URL(route.request().url()).searchParams.get("page") || "1");
+      await fulfillJson(route, {
+        items: [{ ...transfer, token: `page-${currentPage}`, name: currentPage === 1 ? "page-one.pdf" : "page-two.pdf" }],
+        total: 41,
+        page: currentPage,
+        pageSize: 20,
+        totalPages: 3,
+      });
+    });
+    await page.route("**/api/user/stats", (route) => fulfillJson(route, { transfers: 41, downloads: 0, recentDownloads: [] }));
+    await page.route("**/api/user/notifications", (route) => fulfillJson(route, {
+      email_enabled: 1,
+      download_notifications: 1,
+      summary_notifications: 1,
+      expiry_warning_days: 7,
+    }));
+
+    await page.goto("/dashboard");
+    await expect(page.getByText("page-one.pdf", { exact: true })).toBeVisible();
+    await expect(page.getByText("Показано 1–20 из 41")).toBeVisible();
+
+    await page.getByRole("button", { name: "Страница 2" }).click();
+    await expect(page.getByText("page-two.pdf", { exact: true })).toBeVisible();
+    await expect(page.getByText("Показано 21–40 из 41")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Предыдущая страница" })).toBeEnabled();
+  });
 });

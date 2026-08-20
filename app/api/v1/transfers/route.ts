@@ -22,13 +22,11 @@ export function GET(request: NextRequest) {
     page: Number.isFinite(rawPage) ? rawPage : 1,
     pageSize: Number.isFinite(rawPageSize) ? rawPageSize : 20,
   });
-  const page = Math.max(Number.isFinite(rawPage) ? rawPage : 1, 1);
-  const pageSize = Math.min(Math.max(Number.isFinite(rawPageSize) ? rawPageSize : 20, 1), 100);
   return apiOk({
     items: result.items.map((item) => mapTransfer(item, request.nextUrl.origin)),
     total: result.total,
-    page,
-    pageSize,
-    totalPages: Math.max(1, Math.ceil(result.total / pageSize)),
+    page: result.page,
+    pageSize: result.pageSize,
+    totalPages: result.totalPages,
   });
 }

@@ -1483,7 +1483,7 @@ export function getOwnedTransfers(
     page?: number;
     pageSize?: number;
   } = {}
-): { items: OwnedTransferRecord[]; total: number } {
+): { items: OwnedTransferRecord[]; total: number; page: number; pageSize: number; totalPages: number } {
   const conditions = ["owner_user_id = ?"];
   const parameters: Array<string | number> = [userId];
   if (options.query?.trim()) {
@@ -1504,8 +1504,8 @@ export function getOwnedTransfers(
   if (options.status === "password") conditions.push("has_password = 1");
   if (options.status === "e2ee") conditions.push("content_encryption = 'e2ee-v1'");
 
-  const pageSize = Math.min(Math.max(options.pageSize ?? 20, 1), 100);
-  const page = Math.max(options.page ?? 1, 1);
+  const requestedPageSize = Number.isFinite(options.pageSize) ? Math.floor(options.pageSize as number) : 20;
+  const pageSize = Math.min(Math.max(requestedPageSize, 1), 100);
   const where = conditions.join(" AND ");
   const sort = options.sort === "size"
     ? "size DESC, created_at DESC"
@@ -1514,10 +1514,13 @@ export function getOwnedTransfers(
       : "created_at DESC";
   const total = (db.prepare(`${transferCte()} SELECT COUNT(*) AS count FROM transfers WHERE ${where}`)
     .get(...parameters) as { count: number }).count;
+  const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+  const requestedPage = Number.isFinite(options.page) ? Math.floor(options.page as number) : 1;
+  const page = Math.min(Math.max(requestedPage, 1), totalPages);
   const items = db.prepare(
     `${transferCte()} SELECT * FROM transfers WHERE ${where} ORDER BY ${sort} LIMIT ? OFFSET ?`
   ).all(...parameters, pageSize, (page - 1) * pageSize) as OwnedTransferRecord[];
-  return { items, total };
+  return { items, total, page, pageSize, totalPages };
 }
 
 export function getOwnedTransferDetails(userId: number, token: string): OwnedTransferDetails | undefined {

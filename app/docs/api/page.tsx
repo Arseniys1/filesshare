@@ -743,6 +743,38 @@ export default async function ApiDocsPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
         <main className="space-y-6">
           <section className="glass rounded-2xl p-5">
+            <h2 className="mb-3 text-xl font-semibold">
+              {t("specification")}
+            </h2>
+            <a
+              href="/api/docs/openapi"
+              className="text-sm text-accent-light hover:text-white"
+            >
+              {t("downloadOpenapi")}
+            </a>
+            <a
+              href="/api/docs/markdown"
+              className="mt-2 block text-sm text-gray-400 hover:text-white"
+            >
+              {t("downloadMarkdown")}
+            </a>
+          </section>
+
+          <section className="glass rounded-2xl p-5 text-sm leading-6 text-gray-400">
+            <h2 className="mb-2 font-semibold text-foreground">
+              {t("e2eeTitle")}
+            </h2>
+            <p>{t("e2eeBody")}</p>
+            <p className="mt-2">
+              {t("e2eeFragment")} <code className="api-path">#key=</code>:
+            </p>
+            <code className="api-path mt-2 block break-all text-xs">
+              https://your-domain.example/f/file-token#key=&lt;E2EE_KEY&gt;
+            </code>
+            <p className="mt-2 text-xs">{t("fragmentNote")}</p>
+          </section>
+
+          <section className="glass rounded-2xl p-5">
             <h2 className="text-xl font-semibold mb-3">
               {t("authentication")}
             </h2>
@@ -990,34 +1022,6 @@ export default async function ApiDocsPage() {
                 </a>
               ))}
             </nav>
-          </div>
-          <div className="glass rounded-2xl p-5">
-            <h2 className="font-semibold mb-3">{t("specification")}</h2>
-            <a
-              href="/api/docs/openapi"
-              className="text-sm text-accent-light hover:text-white"
-            >
-              {t("downloadOpenapi")}
-            </a>
-            <a
-              href="/api/docs/markdown"
-              className="block mt-2 text-sm text-gray-400 hover:text-white"
-            >
-              {t("downloadMarkdown")}
-            </a>
-          </div>
-          <div className="glass rounded-2xl p-5 text-sm text-gray-400 leading-6">
-            <h2 className="mb-2 font-semibold text-foreground">
-              {t("e2eeTitle")}
-            </h2>
-            <p>{t("e2eeBody")}</p>
-            <p className="mt-2">
-              {t("e2eeFragment")} <code className="api-path">#key=</code>:
-            </p>
-            <code className="api-path mt-2 block break-all text-xs">
-              https://your-domain.example/f/file-token#key=&lt;E2EE_KEY&gt;
-            </code>
-            <p className="mt-2 text-xs">{t("fragmentNote")}</p>
           </div>
         </aside>
       </div>

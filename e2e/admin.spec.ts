@@ -3,6 +3,8 @@ import { fulfillJson, mockAuth } from "./helpers";
 
 const admin = { email: "admin@example.com", role: "admin" as const };
 
+test.use({ locale: "ru" });
+
 test.describe("админ-панель", () => {
   test("неавторизованный пользователь видит приглашение ко входу", async ({ page }) => {
     await mockAuth(page, null);
@@ -138,13 +140,72 @@ test.describe("админ-панель", () => {
         }],
       })
     );
+    await page.route("**/api/admin/telemetry**", (route) =>
+      fulfillJson(route, {
+        events: [{
+          id: 7,
+          event_name: "page_view",
+          consent_version: "telemetry-v1",
+          user_id: 2,
+          user_email: "user@example.com",
+          visitor_id: "visitor-abc123",
+          fingerprint_result: JSON.stringify({ visitorId: "visitor-abc123", confidence: { score: 0.99 } }),
+          browser_tool_result: JSON.stringify({ browser: "Chrome", gpu: "Google" }),
+          client_ip: "198.51.100.20",
+          server_ip: "198.51.100.21",
+          ip_hash: "hash-123",
+          ip_hash_day: "2026-08-18",
+          browser_family: "Chrome",
+          os_family: "Windows",
+          device_type: "desktop",
+          language: "ru-ru",
+          viewport_bucket: "standard",
+          path: "/dashboard",
+          created_at: "2026-08-18T10:00:00.000Z",
+        }, {
+          id: 6,
+          event_name: "page_view",
+          consent_version: "telemetry-v1",
+          user_id: null,
+          user_email: null,
+          visitor_id: "visitor-guest1",
+          fingerprint_result: null,
+          browser_tool_result: null,
+          client_ip: null,
+          server_ip: null,
+          ip_hash: null,
+          ip_hash_day: null,
+          browser_family: "Firefox",
+          os_family: "Linux",
+          device_type: "desktop",
+          language: "en-us",
+          viewport_bucket: "wide",
+          path: "/",
+          created_at: "2026-08-18T09:00:00.000Z",
+        }],
+      })
+    );
 
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: "Админ-панель" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Пользователи/ }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /Файлы/ }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /Телеметрия/ }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /Telegram-боты/ }).first()).toBeVisible();
     await expect(page.getByText("Последние действия")).toBeVisible();
+
+    await page.goto("/admin/telemetry");
+    await expect(page.getByRole("heading", { name: "Телеметрия" })).toBeVisible();
+    await expect(page.getByText("/dashboard", { exact: true })).toBeVisible();
+    await expect(page.getByText("user@example.com", { exact: true })).toBeVisible();
+    await expect(page.getByText("Анонимный пользователь", { exact: true })).toBeVisible();
+    await expect(page.getByText("visitor-abc123", { exact: true }).first()).toBeVisible();
+    await page.locator("article").first().locator("summary").click();
+    await expect(page.locator("article").first().getByText("FingerprintJS", { exact: false })).toBeVisible();
+    await page.getByRole("textbox", { name: "Поиск телеметрии" }).fill("198.51.100.20");
+    await expect(page.getByText("/dashboard", { exact: true })).toBeVisible();
+    await page.getByRole("textbox", { name: "Поиск телеметрии" }).fill("not-found");
+    await expect(page.getByText("По запросу ничего не найдено")).toBeVisible();
 
     await page.goto("/admin/bots");
     await expect(page.getByRole("heading", { name: "Telegram-боты" })).toBeVisible();

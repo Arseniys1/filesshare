@@ -170,6 +170,7 @@
     "overview": "Overview",
     "users": "Users",
     "files": "Files",
+    "telemetry": "Telemetry",
     "bots": "Bots",
     "panel": "Admin panel",
     "accessLogin": "Log in with an administrator account to access the panel.",

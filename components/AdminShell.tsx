@@ -15,6 +15,7 @@ const navigation = [
   { href: "/admin", label: "overview", icon: "⌂" },
   { href: "/admin/users", label: "users", icon: "👥" },
   { href: "/admin/files", label: "files", icon: "📁" },
+  { href: "/admin/telemetry", label: "telemetry", icon: "📡" },
   { href: "/admin/bots", label: "bots", icon: "🤖" },
 ];
 

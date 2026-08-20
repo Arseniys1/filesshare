@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 import {
   countRecentTelemetryEvents,
   createTelemetryEvent,
@@ -50,9 +51,11 @@ export async function POST(request: NextRequest) {
   }
 
   const userAgent = classifyUserAgent(request.headers.get("user-agent"));
+  const currentUser = getCurrentUser(request);
   createTelemetryEvent({
     eventName: event.eventName,
     consentVersion: event.consentVersion,
+    userId: currentUser?.id ?? null,
     visitorId: event.visitorId,
     fingerprintResult: event.fingerprintResult,
     browserToolResult: event.browserToolResult,

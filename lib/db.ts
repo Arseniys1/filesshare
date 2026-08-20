@@ -525,6 +525,19 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    id: "024_telemetry_user",
+    apply: () => {
+      if (!hasColumn("telemetry_events", "user_id")) {
+        db.exec(
+          "ALTER TABLE telemetry_events ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL"
+        );
+      }
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_telemetry_events_user_created ON telemetry_events(user_id, created_at DESC)"
+      );
+    },
+  },
 ];
 
 db.exec("BEGIN IMMEDIATE");
@@ -665,6 +678,8 @@ export interface TelemetryEventRecord {
   id: number;
   event_name: "page_view";
   consent_version: string;
+  user_id: number | null;
+  user_email: string | null;
   visitor_id: string;
   fingerprint_result: string | null;
   ua_parser_result: string | null;
@@ -1098,6 +1113,7 @@ export function getAdminAuditEvents(limit = 100): AdminAuditEventRecord[] {
 export function createTelemetryEvent(data: {
   eventName: "page_view";
   consentVersion: string;
+  userId: number | null;
   visitorId: string;
   fingerprintResult: string;
   browserToolResult: string;
@@ -1114,13 +1130,14 @@ export function createTelemetryEvent(data: {
 }): void {
   db.prepare(
     `INSERT INTO telemetry_events (
-      event_name, consent_version, visitor_id, fingerprint_result, browser_tool_result,
+      event_name, consent_version, user_id, visitor_id, fingerprint_result, browser_tool_result,
       client_ip, server_ip, ip_hash, ip_hash_day,
       browser_family, os_family, device_type, language, viewport_bucket, path
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     data.eventName,
     data.consentVersion,
+    data.userId,
     data.visitorId,
     data.fingerprintResult,
     data.browserToolResult,
@@ -1149,7 +1166,12 @@ export function countRecentTelemetryEvents(ipHash: string, windowMinutes = 5): n
 
 export function getTelemetryEvents(limit = 100): TelemetryEventRecord[] {
   return db
-    .prepare("SELECT * FROM telemetry_events ORDER BY id DESC LIMIT ?")
+    .prepare(
+      `SELECT t.*, u.email AS user_email
+       FROM telemetry_events t
+       LEFT JOIN users u ON u.id = t.user_id
+       ORDER BY t.id DESC LIMIT ?`
+    )
     .all(Math.min(Math.max(limit, 1), 500)) as TelemetryEventRecord[];
 }
 

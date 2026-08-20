@@ -28,10 +28,19 @@ export default function AdminShell({ children }: AdminShellProps) {
     let cancelled = false;
 
     fetch("/api/auth/me")
-      .then((response) => response.json() as Promise<{ user: { role: string } | null }>)
+      .then(
+        (response) =>
+          response.json() as Promise<{ user: { role: string } | null }>,
+      )
       .then(({ user }) => {
         if (cancelled) return;
-        setAuthState(!user ? "unauthenticated" : user.role === "admin" ? "allowed" : "forbidden");
+        setAuthState(
+          !user
+            ? "unauthenticated"
+            : user.role === "admin"
+              ? "allowed"
+              : "forbidden",
+        );
       })
       .catch(() => {
         if (!cancelled) setAuthState("unauthenticated");
@@ -74,9 +83,7 @@ export default function AdminShell({ children }: AdminShellProps) {
       <div className="max-w-md mx-auto px-4 py-32 animate-fade-in">
         <div className="glass rounded-2xl p-8 text-center gradient-border">
           <h1 className="text-2xl font-bold mb-4">{t("insufficientRights")}</h1>
-          <p className="text-gray-400 text-sm">
-            {t("adminOnly")}
-          </p>
+          <p className="text-gray-400 text-sm">{t("adminOnly")}</p>
         </div>
       </div>
     );
@@ -87,14 +94,18 @@ export default function AdminShell({ children }: AdminShellProps) {
       <div className="mb-6 sm:mb-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold sm:text-3xl">
-              {t("panel")}
-            </h1>
+            <h1 className="text-2xl font-bold sm:text-3xl">{t("panel")}</h1>
             <p className="text-gray-400 mt-1">{t("management")}</p>
           </div>
-          <nav aria-label="Разделы админ-панели" className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <nav
+            aria-label={t("panel")}
+            className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap"
+          >
             {navigation.map((item) => {
-              const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+              const active =
+                item.href === "/admin"
+                  ? pathname === "/admin"
+                  : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}

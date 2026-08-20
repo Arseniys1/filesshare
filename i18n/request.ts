@@ -11,15 +11,29 @@ export default getRequestConfig(async ({ requestLocale }) => {
   const acceptedLanguages = new Negotiator({
     headers: { "accept-language": requestHeaders.get("accept-language") ?? "" },
   }).languages();
-  const detectedLocale = match(acceptedLanguages, routing.locales, routing.defaultLocale);
+  const detectedLocale = match(
+    acceptedLanguages,
+    routing.locales,
+    routing.defaultLocale,
+  );
   const locale: AppLocale = routing.locales.includes(cookieLocale as AppLocale)
     ? (cookieLocale as AppLocale)
     : routing.locales.includes(requestedLocale as AppLocale)
       ? (requestedLocale as AppLocale)
-      : detectedLocale as AppLocale;
+      : (detectedLocale as AppLocale);
+
+  const [messages, adminPages, docs] = await Promise.all([
+    import(`../messages/${locale}.json`),
+    import(`../messages/adminPages/${locale}.json`),
+    import(`../messages/docs/${locale}.json`),
+  ]);
 
   return {
     locale,
-    messages: (await import(`../messages/${locale}.json`)).default,
+    messages: {
+      ...messages.default,
+      adminPages: adminPages.default,
+      docs: docs.default,
+    },
   };
 });

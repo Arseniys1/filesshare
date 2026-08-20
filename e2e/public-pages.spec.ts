@@ -34,6 +34,10 @@ test.describe("публичные страницы", () => {
     await expect(page.getByRole("heading", { name: "Документация API" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Параметры методов" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Ответы" })).toHaveCount(17);
+    const apiNavigation = page.getByRole("navigation", { name: "Навигация по методам API" });
+    await expect(apiNavigation).toBeVisible();
+    await expect(apiNavigation.getByRole("link")).toHaveCount(17);
+    await expect(apiNavigation.getByRole("link").first()).toHaveAttribute("href", "#api-method-0");
     await expect(page.getByText("X-Chunk-SHA256", { exact: false })).toBeVisible();
     await expect(page.getByText("expiryWarningDays", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Скачать OpenAPI YAML" })).toHaveAttribute(

@@ -120,8 +120,12 @@ paths:
               properties:
                 checksum: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
       responses:
-        "200": { $ref: "#/components/responses/Upload" }
+        "200": { $ref: "#/components/responses/UploadCompletion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+        "500": { $ref: "#/components/responses/Error" }
   /transfers:
     get:
       tags: [Transfers]
@@ -135,18 +139,7 @@ paths:
         - { name: sort, in: query, schema: { type: string, enum: [created, size, downloads], default: created } }
       responses:
         "200":
-          description: Paginated transfers
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items, total, page, pageSize, totalPages]
-                properties:
-                  items: { type: array, items: { $ref: "#/components/schemas/Transfer" } }
-                  total: { type: integer }
-                  page: { type: integer }
-                  pageSize: { type: integer }
-                  totalPages: { type: integer }
+          $ref: "#/components/responses/TransferList"
         "401": { $ref: "#/components/responses/Unauthorized" }
   /transfers/{token}:
     parameters:
@@ -196,15 +189,7 @@ paths:
       operationId: getStats
       responses:
         "200":
-          description: User statistics
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  transfers: { type: integer }
-                  downloads: { type: integer }
-                  recentDownloads: { type: array, items: { type: object, additionalProperties: true } }
+          $ref: "#/components/responses/Stats"
   /notifications:
     get:
       tags: [Settings]
@@ -297,8 +282,128 @@ components:
         shareUrl: { type: string, format: uri }
         canRecreateLink: { type: boolean }
     File:
-      allOf:
-        - $ref: "#/components/schemas/Transfer"
+      type: object
+      required: [token, name, size, mimeType, expiresAt, maxDownloads, hasPassword, revoked, storageEncrypted, contentEncryption, createdAt]
+      properties:
+        token: { type: string }
+        name: { type: string }
+        size: { type: integer }
+        mimeType: { type: string }
+        expiresAt: { type: [string, "null"], format: date-time }
+        downloadCount: { type: integer }
+        maxDownloads: { type: [integer, "null"] }
+        hasPassword: { type: boolean }
+        revoked: { type: boolean }
+        storageEncrypted: { type: boolean }
+        contentEncryption: { type: string, enum: [none, e2ee-v1] }
+        createdAt: { type: string, format: date-time }
+    GroupResponse:
+      type: object
+      required: [token, shareUrl, expiresAt, maxDownloads, hasPassword]
+      properties:
+        token: { type: string }
+        shareUrl: { type: string, format: uri }
+        expiresAt: { type: [string, "null"], format: date-time }
+        maxDownloads: { type: [integer, "null"] }
+        hasPassword: { type: boolean }
+    UploadResponse:
+      type: object
+      required: [file]
+      properties:
+        file: { $ref: "#/components/schemas/File" }
+    UploadSessionCreateResponse:
+      type: object
+      required: [sessionId, status, totalSize, chunkSize, totalChunks, uploadedParts]
+      properties:
+        sessionId: { type: string }
+        status: { type: string }
+        totalSize: { type: integer }
+        chunkSize: { type: integer }
+        totalChunks: { type: integer }
+        uploadedParts: { type: array, items: { type: integer } }
+    UploadedPart:
+      type: object
+      required: [index, size, checksum]
+      properties:
+        index: { type: integer }
+        size: { type: integer }
+        checksum: { type: string, pattern: "^[a-f0-9]{64}$" }
+    UploadSessionStatusResponse:
+      type: object
+      required: [sessionId, status, totalSize, chunkSize, totalChunks, uploadedParts, result]
+      properties:
+        sessionId: { type: string }
+        status: { type: string }
+        totalSize: { type: integer }
+        chunkSize: { type: integer }
+        totalChunks: { type: integer }
+        uploadedParts: { type: array, items: { $ref: "#/components/schemas/UploadedPart" } }
+        result: { oneOf: [{ $ref: "#/components/schemas/File" }, { type: "null" }] }
+    PartResponse:
+      type: object
+      required: [success, index]
+      properties:
+        success: { type: boolean }
+        index: { type: integer }
+        checksum: { type: string, pattern: "^[a-f0-9]{64}$" }
+        alreadyUploaded: { type: boolean }
+    UploadCompletionResponse:
+      type: object
+      required: [success, file]
+      properties:
+        success: { type: boolean }
+        file: { $ref: "#/components/schemas/File" }
+        alreadyCompleted: { type: boolean }
+    TransferDetailsResponse:
+      type: object
+      required: [kind, token, shareUrl, canRecreateLink, group, file, files]
+      properties:
+        kind: { type: string, enum: [file, group] }
+        token: { type: string }
+        shareUrl: { type: string, format: uri }
+        canRecreateLink: { type: boolean }
+        group: { type: [object, "null"], additionalProperties: true }
+        file: { oneOf: [{ $ref: "#/components/schemas/File" }, { type: "null" }] }
+        files: { type: array, items: { $ref: "#/components/schemas/File" } }
+    TransferListResponse:
+      type: object
+      required: [items, total, page, pageSize, totalPages]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Transfer" } }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+        totalPages: { type: integer }
+    StatsResponse:
+      type: object
+      required: [transfers, downloads, recentDownloads]
+      properties:
+        transfers: { type: integer }
+        downloads: { type: integer }
+        recentDownloads:
+          type: array
+          items:
+            type: object
+            required: [fileName, token, outcome, createdAt, isGroupDownload]
+            properties:
+              fileName: { type: string }
+              token: { type: string }
+              outcome: { type: string }
+              createdAt: { type: string, format: date-time }
+              isGroupDownload: { type: boolean }
+    NotificationsResponse:
+      type: object
+      required: [emailEnabled, downloadNotifications, summaryNotifications, expiryWarningDays]
+      properties:
+        emailEnabled: { type: boolean }
+        downloadNotifications: { type: boolean }
+        summaryNotifications: { type: boolean }
+        expiryWarningDays: { type: integer }
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean }
   responses:
     Error:
       description: Error
@@ -316,7 +421,7 @@ components:
       description: Successful operation
       content:
         application/json:
-          schema: { type: object, additionalProperties: true }
+          schema: { $ref: "#/components/schemas/SuccessResponse" }
     Me:
       description: Current user
       content:
@@ -332,45 +437,55 @@ components:
       description: Created group
       content:
         application/json:
-          schema: { type: object, required: [token, shareUrl], additionalProperties: true }
+          schema: { $ref: "#/components/schemas/GroupResponse" }
     Upload:
       description: Uploaded file
       content:
         application/json:
-          schema:
-            type: object
-            required: [file]
-            properties:
-              file: { $ref: "#/components/schemas/File" }
+          schema: { $ref: "#/components/schemas/UploadResponse" }
     UploadSession:
       description: Created upload session
       content:
         application/json:
-          schema: { type: object, required: [sessionId, status, totalSize, chunkSize, totalChunks], additionalProperties: true }
+          schema: { $ref: "#/components/schemas/UploadSessionCreateResponse" }
     UploadSessionStatus:
       description: Upload session status
       content:
         application/json:
-          schema: { type: object, required: [sessionId, uploadedParts], additionalProperties: true }
+          schema: { $ref: "#/components/schemas/UploadSessionStatusResponse" }
     Part:
       description: Uploaded part
       content:
         application/json:
-          schema: { type: object, additionalProperties: true }
-    TransferDetails:
-      description: Transfer details
-      content:
-        application/json:
-          schema: { type: object, required: [kind, token, files], additionalProperties: true }
-    Notifications:
-      description: Notification settings
+          schema: { $ref: "#/components/schemas/PartResponse" }
+    UploadCompletion:
+      description: Result of completing an upload session
       content:
         application/json:
           schema:
             type: object
-            required: [emailEnabled, downloadNotifications, summaryNotifications, expiryWarningDays]
+            required: [success, file]
             properties:
-              emailEnabled: { type: boolean }
-              downloadNotifications: { type: boolean }
-              summaryNotifications: { type: boolean }
-              expiryWarningDays: { type: integer }
+              success: { type: boolean }
+              file: { $ref: "#/components/schemas/File" }
+              alreadyCompleted: { type: boolean }
+    TransferDetails:
+      description: Transfer details
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/TransferDetailsResponse" }
+    TransferList:
+      description: Paginated transfers
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/TransferListResponse" }
+    Stats:
+      description: User statistics
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/StatsResponse" }
+    Notifications:
+      description: Notification settings
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/NotificationsResponse" }

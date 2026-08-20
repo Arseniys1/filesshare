@@ -38,7 +38,33 @@ curl https://your-domain.example/api/v1/me \\
 }
 \`\`\`
 
-Основные статусы: \`400\` — некорректные данные, \`401\` — отсутствует или неверен ключ, \`403\` — пользователь заблокирован, \`404\` — объект не найден, \`409\` — конфликт состояния, \`422\` — ошибка контрольной суммы, \`429\` — превышен лимит, \`502\` — ошибка удаления из Telegram.
+Основные статусы: \`400\` — некорректные данные, \`401\` — отсутствует или неверен ключ, \`403\` — пользователь заблокирован, \`404\` — объект не найден, \`409\` — конфликт состояния, \`422\` — ошибка контрольной суммы, \`429\` — превышен лимит, \`500\` — внутренняя ошибка, \`502\` — ошибка удаления из Telegram, \`503\` — хранилище недоступно.
+
+## Полный справочник методов, параметров и ответов
+
+Во всех методах обязателен заголовок `Authorization: Bearer <API_KEY>`. JSON-методы принимают `Content-Type: application/json`, обычная загрузка — `multipart/form-data`, загрузка части — `application/octet-stream`.
+
+| Метод | Параметры запроса | Успешный ответ | Возможные ошибки |
+| --- | --- | --- | --- |
+| `GET /me` | нет | `200`: `id`, `email`, `createdAt` | `401`, `403` |
+| `POST /groups` | JSON: `expiry`, `password`, `maxDownloads` | `201`: `token`, `shareUrl`, `expiresAt`, `maxDownloads`, `hasPassword` | `400`, `401`, `403`, `429` |
+| `POST /uploads` | multipart: обязательный `file`; `expiry`, `password`, `maxDownloads`, `groupToken`, `contentEncryption` (`none`/`e2ee-v1`), `originalSize` | `200`: объект `file` с `token`, `name`, `size`, `mimeType`, `shareUrl`, настройками срока, пароля и шифрования | `400`, `401`, `403`, `429` (`Retry-After`), `500`, `503` |
+| `POST /upload-sessions` | JSON: обязательные `fileName`, `totalSize`; `mimeType`, `originalSize`, `checksum`, `expiry`, `password`, `maxDownloads`, `groupToken`, `contentEncryption` | `201`: `sessionId`, `status`, `totalSize`, `chunkSize`, `totalChunks`, `uploadedParts` | `400`, `401`, `403`, `429`, `503` |
+| `GET /upload-sessions/{id}` | path: `id` | `200`: состояние сессии, `uploadedParts`, `result` | `401`, `403`, `404` |
+| `DELETE /upload-sessions/{id}` | path: `id` | `200`: `{ "success": true }` | `401`, `403`, `404` |
+| `PUT /upload-sessions/{id}/parts/{index}` | path: `id`, `index`; header: обязательный `X-Chunk-SHA256`; binary body | `200`: `success`, `index`, `checksum`, возможно `alreadyUploaded` | `400`, `401`, `403`, `404`, `422`, `500` |
+| `POST /upload-sessions/{id}/complete` | path: `id`; JSON: необязательный `checksum` | `200`: `success`, `file`, возможно `alreadyCompleted` | `401`, `403`, `404`, `409`, `500` |
+| `GET /transfers` | query: `page`, `pageSize`, `q`, `status`, `kind`, `sort` | `200`: `items`, `total`, `page`, `pageSize`, `totalPages` | `401`, `403` |
+| `GET /transfers/{token}` | path: `token` | `200`: `kind`, `token`, `shareUrl`, `group`, `file`, `files`, `canRecreateLink` | `401`, `403`, `404` |
+| `PATCH /transfers/{token}` | path: `token`; JSON: `expiry`, `expiresAt`, `password`, `maxDownloads` | `200`: `{ "success": true }` | `400`, `401`, `403`, `404` |
+| `DELETE /transfers/{token}` | path: `token` | `200`: `{ "success": true }` | `401`, `403`, `404`, `502` |
+| `POST /transfers/{token}/revoke` | path: `token` | `200`: `{ "success": true, "revoked": true }` | `401`, `403`, `404` |
+| `POST /transfers/{token}/restore` | path: `token` | `200`: `{ "success": true, "revoked": false }` | `401`, `403`, `404` |
+| `GET /stats` | нет | `200`: `transfers`, `downloads`, `recentDownloads` | `401`, `403` |
+| `GET /notifications` | нет | `200`: `emailEnabled`, `downloadNotifications`, `summaryNotifications`, `expiryWarningDays` | `401`, `403` |
+| `PATCH /notifications` | JSON: `emailEnabled`, `downloadNotifications`, `summaryNotifications`, `expiryWarningDays` (`0`–`30`) | `200`: обновлённые настройки уведомлений | `400`, `401`, `403` |
+
+Ошибки имеют единый формат `{ "error": { "code": "...", "message": "..." } }`. Подробные JSON-схемы ответов доступны в [OpenAPI-спецификации](./openapi.yaml).
 
 ## Загрузка файла
 

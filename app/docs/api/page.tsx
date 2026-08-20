@@ -392,11 +392,11 @@ export default function ApiDocsPage() {
               Все параметры перечислены ниже. Для каждого метода обязателен заголовок Authorization. Необязательные параметры можно не передавать.
             </p>
             <div className="space-y-4">
-              {endpoints.map((endpoint) => {
+              {endpoints.map((endpoint, index) => {
                 const parameters = [authorizationParameter, ...endpoint.parameters];
                 const responses = [...(endpointResponses[`${endpoint.method} ${endpoint.path}`] || []), ...commonApiResponses];
                 return (
-                  <article key={`details-${endpoint.method}-${endpoint.path}`} className="rounded-xl border border-white/10 bg-surface-overlay p-4">
+                  <article id={`api-method-${index}`} key={`details-${endpoint.method}-${endpoint.path}`} className="scroll-mt-24 rounded-xl border border-white/10 bg-surface-overlay p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-center gap-2">
                         <span className={`rounded-md px-2 py-1 font-mono text-xs font-semibold ${methodClass(endpoint.method)}`}>{endpoint.method}</span>
@@ -472,7 +472,28 @@ export default function ApiDocsPage() {
           </section>
         </main>
 
-        <aside className="space-y-4">
+        <aside className="order-first space-y-4 lg:sticky lg:top-24 lg:order-last lg:self-start">
+          <div className="glass rounded-2xl p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-semibold">Методы API</h2>
+              <span className="rounded-full bg-white/10 px-2 py-1 text-xs text-gray-500">{endpoints.length}</span>
+            </div>
+            <nav aria-label="Навигация по методам API" className="mt-3 max-h-[65vh] space-y-1 overflow-y-auto pr-1">
+              {endpoints.map((endpoint, index) => (
+                <a
+                  key={`nav-${endpoint.method}-${endpoint.path}`}
+                  href={`#api-method-${index}`}
+                  className="flex items-start gap-2 rounded-lg px-2.5 py-2 text-xs transition-colors hover:bg-white/10"
+                >
+                  <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ${methodClass(endpoint.method)}`}>{endpoint.method}</span>
+                  <span className="min-w-0">
+                    <code className="block break-all text-gray-300">{endpoint.path}</code>
+                    <span className="mt-0.5 block text-gray-500">{endpoint.description}</span>
+                  </span>
+                </a>
+              ))}
+            </nav>
+          </div>
           <div className="glass rounded-2xl p-5">
             <h2 className="font-semibold mb-3">Спецификация</h2>
             <a href="/api/docs/openapi" className="text-sm text-accent-light hover:text-white">Скачать OpenAPI YAML</a>

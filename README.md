@@ -28,7 +28,7 @@ FileShare — сервис обмена файлами через приватн
 1. Скопируйте `.env.example` в `.env`, заполните случайные `DOWNLOAD_GRANT_SECRET` / `CLEANUP_KEY` / `FILE_ENCRYPTION_KEY`, SMTP-параметры и `TELEGRAM_API_ID` / `TELEGRAM_API_HASH`.
 2. Поместите TLS-сертификаты в `certs/fullchain.pem` и `certs/privkey.pem`.
 3. Запустите `docker compose up --build -d`. При первой сборке Docker компилирует официальный локальный Telegram Bot API, поэтому она занимает заметное время.
-4. Задайте `BOOTSTRAP_ADMIN_TOKEN` в `.env`, откройте `/register` и укажите этот токен при создании первого администратора. Войдите в `/admin`, добавьте бота в приватный канал как администратора с правами публикации и удаления сообщений, затем добавьте его в панель.
+4. Откройте `/register` и создайте аккаунт. Новые пользователи создаются с ролью `user`; при необходимости выдайте роль `admin` через SQLite в `data/filesshare.db`, например: `UPDATE users SET role = 'admin' WHERE email = 'admin@example.com';`. Затем войдите в `/admin`, добавьте бота в приватный канал как администратора с правами публикации и удаления сообщений, затем добавьте его в панель.
 5. Один раз проверьте очистку без удаления:
 
    ```bash
@@ -58,7 +58,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Без локального Telegram Bot API лимит загрузки равен 50 МБ. Для production обязательны `DOWNLOAD_GRANT_SECRET`, `CLEANUP_KEY`, `FILE_ENCRYPTION_KEY`, `SMTP_HOST` и `SMTP_FROM`. Пользователи и их роли хранятся в SQLite; первый зарегистрированный пользователь становится администратором.
+Без локального Telegram Bot API лимит загрузки равен 50 МБ. Для production обязательны `DOWNLOAD_GRANT_SECRET`, `CLEANUP_KEY`, `FILE_ENCRYPTION_KEY`, `SMTP_HOST` и `SMTP_FROM`. Пользователи и их роли хранятся в SQLite; новые пользователи по умолчанию получают роль `user`.
 
 Опционально `CLAMSCAN_PATH` включает антивирусную проверку обычных файлов, а `DOWNLOAD_BYTES_PER_SECOND` ограничивает скорость скачивания. Для E2EE серверную антивирусную проверку выполнить невозможно: содержимое доступно только в браузере получателя.
 

@@ -10,7 +10,6 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [bootstrapToken, setBootstrapToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +21,7 @@ export default function RegisterPage() {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, passwordConfirmation, bootstrapToken }),
+        body: JSON.stringify({ email, password, passwordConfirmation }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(t("registerError"));
@@ -54,19 +53,6 @@ export default function RegisterPage() {
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="email"
               required
-              className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50"
-            />
-          </div>
-          <div>
-            <label htmlFor="register-bootstrap-token" className="block text-sm text-gray-400 mb-1.5">
-              {t("bootstrapToken")}
-            </label>
-            <input
-              id="register-bootstrap-token"
-              type="password"
-              value={bootstrapToken}
-              onChange={(event) => setBootstrapToken(event.target.value)}
-              autoComplete="off"
               className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50"
             />
           </div>

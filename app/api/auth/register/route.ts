@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createUser, getUserByEmail, getUserCount } from "@/lib/db";
+import { createUser, getUserByEmail } from "@/lib/db";
 import {
   createUserSession,
   getPublicUser,
@@ -11,7 +11,6 @@ import {
 import { hashPassword } from "@/lib/utils";
 import { consumeRequestRateLimit, getRequestIp } from "@/lib/request-rate-limit";
 import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
-import { isValidBootstrapToken } from "@/lib/bootstrap";
 
 export const runtime = "nodejs";
 
@@ -19,10 +18,7 @@ export async function POST(request: NextRequest) {
   try {
     const rate = consumeRequestRateLimit("auth-register-ip", getRequestIp(request.headers), 10, 60 * 60 * 1000);
     if (!rate.allowed) return NextResponse.json({ error: "Слишком много регистраций. Попробуйте позже." }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
-    const body = await readJsonWithLimit<{ email?: unknown; password?: unknown; passwordConfirmation?: unknown; bootstrapToken?: unknown }>(request, 32 * 1024);
-    if (process.env.NODE_ENV === "production" && getUserCount() === 0 && !isValidBootstrapToken(body.bootstrapToken)) {
-      return NextResponse.json({ error: "Для создания первого администратора нужен bootstrap-токен" }, { status: 403 });
-    }
+    const body = await readJsonWithLimit<{ email?: unknown; password?: unknown; passwordConfirmation?: unknown }>(request, 32 * 1024);
     const email = normalizeEmail(body.email);
     const password = typeof body.password === "string" ? body.password : "";
     const passwordConfirmation = typeof body.passwordConfirmation === "string" ? body.passwordConfirmation : "";

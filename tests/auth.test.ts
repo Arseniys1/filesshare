@@ -16,11 +16,11 @@ afterAll(async () => {
 });
 
 describe("user authentication", () => {
-  it("makes the first registered user an admin and later users regular users", async () => {
-    const admin = db.createUser("admin@example.com", await passwordUtils.hashPassword("admin-pass"));
+  it("creates registered users as regular users", async () => {
+    const firstUser = db.createUser("first@example.com", await passwordUtils.hashPassword("first-pass"));
     const user = db.createUser("user@example.com", await passwordUtils.hashPassword("user-pass"));
 
-    expect(admin.role).toBe("admin");
+    expect(firstUser.role).toBe("user");
     expect(user.role).toBe("user");
   });
 
@@ -30,7 +30,7 @@ describe("user authentication", () => {
 
     expect(db.getUserBySessionHash(auth.hashOpaqueToken(token))).toMatchObject({
       id: 1,
-      role: "admin",
+      role: "user",
     });
     expect(db.getUserBySessionHash(auth.hashOpaqueToken("wrong-token"))).toBeUndefined();
   });
@@ -39,7 +39,7 @@ describe("user authentication", () => {
     const token = auth.createResetToken(1);
     const changed = auth.resetPasswordWithToken(
       token,
-      await passwordUtils.hashPassword("new-admin-pass")
+      await passwordUtils.hashPassword("new-user-pass")
     );
 
     expect(changed).toBe(true);
@@ -47,7 +47,7 @@ describe("user authentication", () => {
       false
     );
     await expect(
-      passwordUtils.verifyPassword("new-admin-pass", db.getUserById(1)!.password_hash)
+      passwordUtils.verifyPassword("new-user-pass", db.getUserById(1)!.password_hash)
     ).resolves.toMatchObject({ valid: true });
   });
 });

@@ -1232,20 +1232,13 @@ export function getUserBySessionHashIncludingBlocked(tokenHash: string): AuthUse
 }
 
 export function createUser(email: string, passwordHash: string): UserRecord {
-  const create = db.transaction(() => {
-    const userCount = (db.prepare("SELECT COUNT(*) as count FROM users").get() as {
-      count: number;
-    }).count;
-    const role: UserRole = userCount === 0 ? "admin" : "user";
-    const result = db
-      .prepare(
-        "INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)"
-      )
-      .run(email, passwordHash, role);
-    return getUserById(result.lastInsertRowid as number)!;
-  });
+  const result = db
+    .prepare(
+      "INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)"
+    )
+    .run(email, passwordHash, "user");
 
-  return create();
+  return getUserById(result.lastInsertRowid as number)!;
 }
 
 export function updateUserPassword(userId: number, passwordHash: string): void {

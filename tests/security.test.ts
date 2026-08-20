@@ -4,7 +4,6 @@ import {
   verifyDownloadGrant,
 } from "@/lib/download-grant";
 import { hashPassword, verifyPassword } from "@/lib/utils";
-import { isValidBootstrapToken } from "@/lib/bootstrap";
 import { readJsonWithLimit, RequestBodyTooLargeError } from "@/lib/request-body";
 
 describe("password migration", () => {
@@ -40,15 +39,6 @@ describe("download grants", () => {
 });
 
 describe("request hardening", () => {
-  it("compares the production bootstrap token safely", () => {
-    const previous = process.env.BOOTSTRAP_ADMIN_TOKEN;
-    process.env.BOOTSTRAP_ADMIN_TOKEN = "bootstrap-test-token";
-    expect(isValidBootstrapToken("bootstrap-test-token")).toBe(true);
-    expect(isValidBootstrapToken("wrong-token")).toBe(false);
-    if (previous === undefined) delete process.env.BOOTSTRAP_ADMIN_TOKEN;
-    else process.env.BOOTSTRAP_ADMIN_TOKEN = previous;
-  });
-
   it("rejects JSON bodies above the configured limit", async () => {
     const request = new Request("http://localhost/api/test", {
       method: "POST",

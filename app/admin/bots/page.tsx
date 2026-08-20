@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import ThemedCheckbox from "@/components/ThemedCheckbox";
 
 interface StorageAccount {
@@ -14,6 +15,7 @@ interface StorageAccount {
 }
 
 export default function AdminBotsPage() {
+  const t = useTranslations("admin");
   const [accounts, setAccounts] = useState<StorageAccount[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", botToken: "", channelId: "" });
@@ -99,7 +101,7 @@ export default function AdminBotsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Telegram-боты</h2>
+          <h2 className="text-2xl font-semibold">{t("bots")}</h2>
           <p className="text-gray-400 mt-1">Управление ботами и каналами хранения файлов</p>
         </div>
         <button type="button" onClick={() => setShowForm((current) => !current)} className="self-start px-5 py-2.5 rounded-xl bg-accent/20 text-accent-light font-medium hover:bg-accent/30 transition-colors sm:self-auto">{showForm ? "Отмена" : "+ Добавить бота"}</button>
@@ -133,7 +135,7 @@ export default function AdminBotsPage() {
         </form>
       )}
 
-      {loading ? <div className="glass rounded-2xl p-12 text-center text-gray-400">Загрузка ботов...</div> : accounts.length === 0 ? (
+      {loading ? <div className="glass rounded-2xl p-12 text-center text-gray-400">{t("loading")}</div> : accounts.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center">
           <div className="text-5xl mb-4">🤖</div>
           <h3 className="text-xl font-medium mb-2">Нет подключенных ботов</h3>

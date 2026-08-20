@@ -66,8 +66,8 @@ export function formatFileSize(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString("ru-RU", {
+export function formatDate(dateStr: string, locale = "ru-RU"): string {
+  return new Date(dateStr).toLocaleString(locale, {
     day: "numeric",
     month: "long",
     year: "numeric",

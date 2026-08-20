@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { formatFileSize } from "@/lib/utils";
 import ThemedSelect from "@/components/ThemedSelect";
 
@@ -50,6 +51,7 @@ function getFileStatus(file: AdminFile): FileStatus {
 }
 
 export default function AdminFilesPage() {
+  const t = useTranslations("admin");
   const [files, setFiles] = useState<AdminFile[]>([]);
   const [pagination, setPagination] = useState<PaginationState>({ page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
@@ -136,7 +138,7 @@ export default function AdminFilesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Файлы</h2>
+        <h2 className="text-2xl font-semibold">{t("files")}</h2>
         <p className="text-gray-400 mt-1">Поиск, контроль ссылок и удаление файлов из Telegram</p>
       </div>
 
@@ -153,7 +155,7 @@ export default function AdminFilesPage() {
       </div>
 
       <div className="glass rounded-2xl p-5">
-        {loading ? <div className="py-12 text-center text-sm text-gray-500">Загрузка файлов...</div> : (
+        {loading ? <div className="py-12 text-center text-sm text-gray-500">{t("loading")}</div> : (
           <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-sm">
               <thead className="text-left text-xs text-gray-500"><tr><th className="pb-3 pr-4">Файл</th><th className="pb-3 pr-4">Владелец</th><th className="pb-3 pr-4">Размер</th><th className="pb-3 pr-4">Скачивания</th><th className="pb-3 pr-4">Статус</th><th className="pb-3">Действия</th></tr></thead>

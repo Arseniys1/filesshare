@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import GuestOnly from "@/components/GuestOnly";
+import { useTranslations } from "next-intl";
 
 export default function LoginPage() {
+  const t = useTranslations("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,13 +23,13 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Не удалось войти");
+      if (!response.ok) throw new Error(data.error || t("loginError"));
 
       const next = new URLSearchParams(window.location.search).get("next");
       window.location.href =
         next?.startsWith("/") && !next.startsWith("//") ? next : "/";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось войти");
+      setError(err instanceof Error ? err.message : t("loginError"));
     } finally {
       setLoading(false);
     }
@@ -37,9 +39,9 @@ export default function LoginPage() {
     <GuestOnly>
       <div className="mx-auto max-w-md px-3 py-12 animate-fade-in sm:px-4 sm:py-24">
       <div className="glass rounded-2xl p-5 gradient-border sm:p-8">
-        <h1 className="text-2xl font-bold text-center mb-2">Вход</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">{t("loginTitle")}</h1>
         <p className="text-gray-400 text-sm text-center mb-8">
-          Войдите в аккаунт FileShare
+          {t("loginDescription")}
         </p>
         <form onSubmit={submit} className="space-y-4">
           <div>
@@ -58,7 +60,7 @@ export default function LoginPage() {
           </div>
           <div>
             <label htmlFor="login-password" className="block text-sm text-gray-400 mb-1.5">
-              Пароль
+              {t("password")}
             </label>
             <input
               id="login-password"
@@ -76,15 +78,15 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {loading ? "Входим..." : "Войти"}
+            {loading ? t("loggingIn") : t("login")}
           </button>
         </form>
         <div className="mt-6 flex flex-col items-center gap-3 text-center text-sm sm:flex-row sm:justify-between">
           <Link href="/forgot-password" className="text-accent-light hover:underline">
-            Забыли пароль?
+            {t("forgotPassword")}
           </Link>
           <Link href="/register" className="text-accent-light hover:underline">
-            Регистрация
+            {t("register")}
           </Link>
         </div>
       </div>

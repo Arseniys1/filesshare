@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import GuestOnly from "@/components/GuestOnly";
+import { useTranslations } from "next-intl";
 
 export default function ResetPasswordPage() {
+  const t = useTranslations("auth");
   const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
@@ -27,10 +29,10 @@ export default function ResetPasswordPage() {
         body: JSON.stringify({ token, password, passwordConfirmation }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Не удалось изменить пароль");
+      if (!response.ok) throw new Error(data.error || t("changePasswordError"));
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось изменить пароль");
+      setError(err instanceof Error ? err.message : t("changePasswordError"));
     } finally {
       setLoading(false);
     }
@@ -40,21 +42,21 @@ export default function ResetPasswordPage() {
     <GuestOnly>
       <div className="mx-auto max-w-md px-3 py-12 animate-fade-in sm:px-4 sm:py-24">
       <div className="glass rounded-2xl p-5 gradient-border sm:p-8">
-        <h1 className="text-2xl font-bold text-center mb-2">Новый пароль</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">{t("newPasswordTitle")}</h1>
         {success ? (
           <div className="text-center">
-            <p className="text-gray-300 mb-6">Пароль изменён. Теперь можно войти.</p>
+            <p className="text-gray-300 mb-6">{t("passwordChanged")}</p>
             <Link
               href="/login"
               className="block py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium"
             >
-              Перейти ко входу
+              {t("goToLogin")}
             </Link>
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-4 mt-8">
             <div>
-              <label className="block text-sm text-gray-400 mb-1.5">Новый пароль</label>
+              <label className="block text-sm text-gray-400 mb-1.5">{t("newPasswordTitle")}</label>
               <input
                 type="password"
                 value={password}
@@ -66,7 +68,7 @@ export default function ResetPasswordPage() {
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1.5">Повторите пароль</label>
+              <label className="block text-sm text-gray-400 mb-1.5">{t("passwordConfirmation")}</label>
               <input
                 type="password"
                 value={passwordConfirmation}
@@ -83,10 +85,10 @@ export default function ResetPasswordPage() {
               disabled={loading || !token}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {loading ? "Сохраняем..." : "Сохранить пароль"}
+              {loading ? t("saving") : t("savePassword")}
             </button>
             {!token && (
-              <p className="text-red-400 text-sm">В ссылке отсутствует токен восстановления.</p>
+              <p className="text-red-400 text-sm">{t("missingToken")}</p>
             )}
           </form>
         )}

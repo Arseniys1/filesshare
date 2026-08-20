@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { formatFileSize } from "@/lib/utils";
 import ThemedSelect from "@/components/ThemedSelect";
 
@@ -43,6 +44,7 @@ function Pagination({ pagination, onPageChange }: { pagination: PaginationState;
 }
 
 export default function AdminUsersPage() {
+  const t = useTranslations("admin");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [pagination, setPagination] = useState<PaginationState>({ page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
@@ -111,7 +113,7 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Пользователи</h2>
+        <h2 className="text-2xl font-semibold">{t("users")}</h2>
         <p className="text-gray-400 mt-1">Роли, доступ, квоты и текущая загрузка аккаунтов</p>
       </div>
 
@@ -129,7 +131,7 @@ export default function AdminUsersPage() {
 
       <div className="glass rounded-2xl p-5">
         {loading ? (
-          <div className="py-12 text-center text-sm text-gray-500">Загрузка пользователей...</div>
+          <div className="py-12 text-center text-sm text-gray-500">{t("loading")}</div>
         ) : (
           <div className="space-y-4">
             {users.map((user) => (

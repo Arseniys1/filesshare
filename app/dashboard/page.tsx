@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import QRCode from "qrcode";
 import { EXPIRY_OPTIONS, formatDate, formatFileSize, getFileIcon } from "@/lib/utils";
 import { copyImageToClipboard } from "@/lib/clipboard";
@@ -62,54 +63,55 @@ interface EditTransferPanelProps {
 }
 
 function EditTransferPanel({ edit, saving, onChange, onSave, onClose }: EditTransferPanelProps) {
+  const t = useTranslations("dashboard");
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-accent/15 bg-surface-overlay shadow-lg shadow-black/5">
       <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-5">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-lg text-accent">⚙</div>
           <div>
-            <h2 className="text-base font-semibold">Настройки ссылки</h2>
-            <p className="mt-0.5 text-xs text-gray-500">Изменения применяются к этой передаче.</p>
+            <h2 className="text-base font-semibold">{t("linkSettings")}</h2>
+            <p className="mt-0.5 text-xs text-gray-500">{t("changesApply")}</p>
           </div>
         </div>
-        <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-white/10 hover:text-foreground" aria-label="Закрыть настройки">✕</button>
+        <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-white/10 hover:text-foreground" aria-label={t("closeSettings")}>✕</button>
       </div>
       <div className="p-4 sm:p-5">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
-            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">Срок действия</label>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">{t("expiresAt")}</label>
             <ThemedSelect
               value={edit.expiry}
-              options={[{ value: "keep", label: "Не изменять" }, ...EXPIRY_OPTIONS]}
+              options={[{ value: "keep", label: t("keep") }, ...EXPIRY_OPTIONS]}
               onChange={(value) => onChange({ expiry: value })}
               className="w-full"
-              ariaLabel="Срок действия"
+              ariaLabel={t("expiresAt")}
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">Новый пароль</label>
-            <input type="password" value={edit.password} onChange={(event) => onChange({ password: event.target.value, clearPassword: false })} placeholder="Оставить текущий" className="w-full rounded-xl border border-white/10 bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors placeholder:text-gray-500 focus:border-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/10" />
-            <label className="mt-2.5 flex items-center gap-2 text-xs text-gray-500"><ThemedCheckbox checked={edit.clearPassword} onChange={(event) => onChange({ clearPassword: event.target.checked, password: "" })} /> Убрать пароль</label>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">{t("newPassword")}</label>
+            <input type="password" value={edit.password} onChange={(event) => onChange({ password: event.target.value, clearPassword: false })} placeholder={t("keepCurrent")} className="w-full rounded-xl border border-white/10 bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors placeholder:text-gray-500 focus:border-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/10" />
+            <label className="mt-2.5 flex items-center gap-2 text-xs text-gray-500"><ThemedCheckbox checked={edit.clearPassword} onChange={(event) => onChange({ clearPassword: event.target.checked, password: "" })} /> {t("removePassword")}</label>
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">Лимит скачиваний</label>
-            <input type="number" min="1" value={edit.maxDownloads} onChange={(event) => onChange({ maxDownloads: event.target.value, clearLimit: false })} placeholder="Оставить текущий" className="w-full rounded-xl border border-white/10 bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors placeholder:text-gray-500 focus:border-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/10" />
-            <label className="mt-2.5 flex items-center gap-2 text-xs text-gray-500"><ThemedCheckbox checked={edit.clearLimit} onChange={(event) => onChange({ clearLimit: event.target.checked, maxDownloads: "" })} /> Убрать лимит</label>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">{t("downloads")}</label>
+            <input type="number" min="1" value={edit.maxDownloads} onChange={(event) => onChange({ maxDownloads: event.target.value, clearLimit: false })} placeholder={t("keepCurrent")} className="w-full rounded-xl border border-white/10 bg-[var(--background)] px-3.5 py-2.5 text-sm transition-colors placeholder:text-gray-500 focus:border-accent/50 focus:outline-none focus:ring-4 focus:ring-accent/10" />
+            <label className="mt-2.5 flex items-center gap-2 text-xs text-gray-500"><ThemedCheckbox checked={edit.clearLimit} onChange={(event) => onChange({ clearLimit: event.target.checked, maxDownloads: "" })} /> {t("removeLimit")}</label>
           </div>
         </div>
         <div className="mt-5 flex flex-col-reverse gap-2 border-t border-white/10 pt-4 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm text-gray-500 transition-colors hover:bg-white/10 hover:text-foreground">Отмена</button>
-          <button type="button" onClick={onSave} disabled={saving} className="rounded-xl bg-gradient-to-r from-accent to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-accent/20 transition-opacity hover:opacity-90 disabled:opacity-50">{saving ? "Сохранение..." : "Сохранить"}</button>
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm text-gray-500 transition-colors hover:bg-white/10 hover:text-foreground">{t("cancel")}</button>
+          <button type="button" onClick={onSave} disabled={saving} className="rounded-xl bg-gradient-to-r from-accent to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-accent/20 transition-opacity hover:opacity-90 disabled:opacity-50">{saving ? t("saving") : t("save")}</button>
         </div>
       </div>
     </div>
   );
 }
 
-function statusLabel(item: Transfer): string {
-  if (item.revoked) return "Отозвана";
-  if (item.expired) return "Истекла";
-  return "Активна";
+function statusLabel(item: Transfer, labels: { revoked: string; expired: string; active: string }): string {
+  if (item.revoked) return labels.revoked;
+  if (item.expired) return labels.expired;
+  return labels.active;
 }
 
 function getPaginationPages(totalPages: number, currentPage: number): Array<number | "ellipsis"> {
@@ -126,6 +128,9 @@ function getPaginationPages(totalPages: number, currentPage: number): Array<numb
 }
 
 export default function DashboardPage() {
+  const t = useTranslations("dashboard");
+  const navT = useTranslations("nav");
+  const locale = useLocale();
   const [items, setItems] = useState<Transfer[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [notifications, setNotifications] = useState<NotificationSettings | null>(null);
@@ -164,18 +169,18 @@ export default function DashboardPage() {
       const filesData = await filesResponse.json();
       const statsData = await statsResponse.json();
       const notificationsData = await notificationsResponse.json();
-      if (!filesResponse.ok) throw new Error(filesData.error || "Не удалось загрузить файлы");
+      if (!filesResponse.ok) throw new Error(filesData.error || t("files"));
       setItems(filesData.items);
       setTotal(filesData.total);
       if (Number.isInteger(filesData.page) && filesData.page >= 1) setPage(filesData.page);
       setStats(statsData);
       if (notificationsResponse.ok) setNotifications(notificationsData);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Ошибка загрузки кабинета");
+      setError(loadError instanceof Error ? loadError.message : t("cabinet"));
     } finally {
       setLoading(false);
     }
-  }, [page, q, sort, status]);
+  }, [page, q, sort, status, t]);
 
   const updateNotifications = async (patch: Partial<NotificationSettings>) => {
     if (!notifications) return;
@@ -187,10 +192,10 @@ export default function DashboardPage() {
         body: JSON.stringify(patch),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Не удалось сохранить настройки уведомлений");
+      if (!response.ok) throw new Error(data.error || t("emailNotifications"));
       setNotifications(data);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Ошибка сохранения уведомлений");
+      setError(saveError instanceof Error ? saveError.message : t("emailNotifications"));
     } finally {
       setNotificationSaving(false);
     }
@@ -202,7 +207,7 @@ export default function DashboardPage() {
 
   const copyLink = async (item: Transfer) => {
     if (!item.canRecreateLink) {
-      setError("Для E2EE-файла ключ находится только в исходной ссылке и не хранится в кабинете.");
+      setError(t("e2eeLinkOnly"));
       return;
     }
     await navigator.clipboard.writeText(item.shareUrl);
@@ -212,7 +217,7 @@ export default function DashboardPage() {
 
   const showQr = async (item: Transfer) => {
     if (!item.canRecreateLink) {
-      setError("Для E2EE-файла QR-код можно создать только из исходной ссылки с ключом.");
+      setError(t("e2eeQrOnly"));
       return;
     }
     setQrCopied(false);
@@ -226,14 +231,14 @@ export default function DashboardPage() {
       setQrCopied(true);
       window.setTimeout(() => setQrCopied(false), 1800);
     } catch (copyError) {
-      setError(copyError instanceof Error ? copyError.message : "Не удалось скопировать QR-код");
+      setError(copyError instanceof Error ? copyError.message : t("qrCopyError"));
     }
   };
 
   const changeStatus = async (item: Transfer, action: "revoke" | "restore") => {
     const response = await fetch(`/api/user/files/${encodeURIComponent(item.token)}?action=${action}`, { method: "POST" });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) setError(data.error || "Не удалось изменить статус ссылки");
+    if (!response.ok) setError(data.error || t("edit"));
     else load();
   };
 
@@ -241,7 +246,7 @@ export default function DashboardPage() {
     if (!window.confirm(`Удалить «${item.name}» из Telegram и FileShare?`)) return;
     const response = await fetch(`/api/user/files/${encodeURIComponent(item.token)}`, { method: "DELETE" });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) setError(data.error || "Не удалось удалить передачу");
+    if (!response.ok) setError(data.error || t("delete"));
     else load();
   };
 
@@ -261,11 +266,11 @@ export default function DashboardPage() {
         body: JSON.stringify(body),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Не удалось сохранить изменения");
+      if (!response.ok) throw new Error(data.error || t("save"));
       setEdit(null);
       await load();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Ошибка сохранения");
+      setError(saveError instanceof Error ? saveError.message : t("save"));
     } finally {
       setSaving(false);
     }
@@ -275,9 +280,9 @@ export default function DashboardPage() {
     return (
       <div className="max-w-md mx-auto px-4 py-32">
         <div className="glass rounded-2xl p-8 text-center gradient-border">
-          <h1 className="text-2xl font-bold mb-3">Личный кабинет</h1>
-          <p className="text-gray-400 text-sm mb-6">Войдите, чтобы увидеть свои передачи.</p>
-          <Link href="/login?next=/dashboard" className="block py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium">Войти</Link>
+          <h1 className="text-2xl font-bold mb-3">{t("cabinet")}</h1>
+          <p className="text-gray-400 text-sm mb-6">{t("loginRequired")}</p>
+          <Link href="/login?next=/dashboard" className="block py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium">{navT("login")}</Link>
         </div>
       </div>
     );
@@ -289,38 +294,38 @@ export default function DashboardPage() {
     <div className="mx-auto max-w-5xl px-3 py-8 animate-fade-in sm:px-4 sm:py-12">
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">Личный <span className="gradient-text">кабинет</span></h1>
-          <p className="text-gray-400 mt-1">Управление файлами и ссылками</p>
+          <h1 className="text-2xl font-bold sm:text-3xl">{t("cabinet")}</h1>
+          <p className="text-gray-400 mt-1">{t("cabinetDescription")}</p>
         </div>
-        <Link href="/" className="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-accent/20 text-accent-light text-sm font-medium hover:bg-accent/30">Новая загрузка</Link>
+        <Link href="/" className="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-accent/20 text-accent-light text-sm font-medium hover:bg-accent/30">{t("newUpload")}</Link>
       </div>
 
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-          <div className="glass rounded-xl p-4"><p className="text-2xl font-bold gradient-text">{stats.transfers}</p><p className="text-sm text-gray-400">Передач</p></div>
-          <div className="glass rounded-xl p-4"><p className="text-2xl font-bold gradient-text">{stats.downloads}</p><p className="text-sm text-gray-400">Скачиваний</p></div>
-          <div className="glass rounded-xl p-4 col-span-2 sm:col-span-1"><p className="text-2xl font-bold gradient-text">{stats.recentDownloads.length}</p><p className="text-sm text-gray-400">Последних событий</p></div>
+          <div className="glass rounded-xl p-4"><p className="text-2xl font-bold gradient-text">{stats.transfers}</p><p className="text-sm text-gray-400">{t("transfers")}</p></div>
+          <div className="glass rounded-xl p-4"><p className="text-2xl font-bold gradient-text">{stats.downloads}</p><p className="text-sm text-gray-400">{t("downloads")}</p></div>
+          <div className="glass rounded-xl p-4 col-span-2 sm:col-span-1"><p className="text-2xl font-bold gradient-text">{stats.recentDownloads.length}</p><p className="text-sm text-gray-400">{t("recentEvents")}</p></div>
         </div>
       )}
 
       {notifications && (
         <div className="glass mb-6 rounded-2xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3 mb-4">
-            <div><h2 className="font-semibold">Email-уведомления</h2></div>
-            {notificationSaving && <span className="text-xs text-gray-500">Сохранение...</span>}
+            <div><h2 className="font-semibold">{t("emailNotifications")}</h2></div>
+            {notificationSaving && <span className="text-xs text-gray-500">{t("saving")}</span>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.email_enabled === 1} onChange={(event) => updateNotifications({ email_enabled: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> Все уведомления</label>
-            <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.download_notifications === 1} onChange={(event) => updateNotifications({ download_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> О каждом скачивании</label>
-            <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.summary_notifications === 1} onChange={(event) => updateNotifications({ summary_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> Сводные уведомления</label>
+            <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.email_enabled === 1} onChange={(event) => updateNotifications({ email_enabled: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> {t("allNotifications")}</label>
+            <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.download_notifications === 1} onChange={(event) => updateNotifications({ download_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> {t("eachDownload")}</label>
+            <label className="flex items-center gap-2 text-gray-300"><ThemedCheckbox checked={notifications.summary_notifications === 1} onChange={(event) => updateNotifications({ summary_notifications: event.target.checked ? 1 : 0 })} disabled={notificationSaving} /> {t("summaryNotifications")}</label>
           </div>
-          <label className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-400">Предупреждать об окончании за
+          <label className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-400">{t("warnBeforeExpiry")}
             <ThemedSelect
               value={String(notifications.expiry_warning_days)}
-              options={[{ value: "0", label: "Не предупреждать" }, { value: "1", label: "1 день" }, { value: "2", label: "2 дня" }, { value: "3", label: "3 дня" }, { value: "7", label: "7 дней" }, { value: "14", label: "14 дней" }, { value: "30", label: "30 дней" }]}
+              options={[{ value: "0", label: t("doNotWarn") }, { value: "1", label: "1 day" }, { value: "2", label: "2 days" }, { value: "3", label: "3 days" }, { value: "7", label: "7 days" }, { value: "14", label: "14 days" }, { value: "30", label: "30 days" }]}
               onChange={(value) => updateNotifications({ expiry_warning_days: Number(value) })}
               disabled={notificationSaving}
-              ariaLabel="Срок предупреждения об окончании"
+              ariaLabel={t("warnBeforeExpiry")}
             />
           </label>
         </div>
@@ -328,30 +333,30 @@ export default function DashboardPage() {
 
       <div className="glass rounded-2xl p-4 mb-5">
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3">
-          <input value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="Поиск по названию" className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50" />
+          <input value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder={t("searchByName")} className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50" />
           <ThemedSelect
             value={status}
-            options={[{ value: "", label: "Все статусы" }, { value: "active", label: "Активные" }, { value: "expired", label: "Истёкшие" }, { value: "revoked", label: "Отозванные" }, { value: "password", label: "С паролем" }, { value: "e2ee", label: "E2EE" }]}
+            options={[{ value: "", label: t("allStatuses") }, { value: "active", label: t("activeStatuses") }, { value: "expired", label: t("expiredStatuses") }, { value: "revoked", label: t("revokedStatuses") }, { value: "password", label: t("withPassword") }, { value: "e2ee", label: "E2EE" }]}
             onChange={(value) => { setStatus(value as Status); setPage(1); }}
               className="w-full sm:w-40"
-            ariaLabel="Фильтр по статусу"
+            ariaLabel={t("allStatuses")}
           />
           <ThemedSelect
             value={sort}
-            options={[{ value: "created", label: "Новые сначала" }, { value: "size", label: "По размеру" }, { value: "downloads", label: "По скачиваниям" }]}
+            options={[{ value: "created", label: t("newestFirst") }, { value: "size", label: t("bySize") }, { value: "downloads", label: t("byDownloads") }]}
             onChange={(value) => { setSort(value); setPage(1); }}
             className="w-full"
-            ariaLabel="Сортировка файлов"
+            ariaLabel={t("bySize")}
           />
         </div>
       </div>
 
       {error && <div className="glass rounded-xl p-4 mb-4 border border-red-500/30 bg-red-500/10"><p className="text-red-400 text-sm">{error}</p></div>}
       {loading && items.length === 0 ? <div className="py-20 text-center"><div className="w-10 h-10 mx-auto border-2 border-accent/30 border-t-accent rounded-full animate-spin" /></div> : items.length === 0 ? (
-        <div className="glass rounded-2xl p-12 text-center"><div className="text-5xl mb-4">📁</div><h2 className="text-xl font-medium mb-2">Передач пока нет</h2><p className="text-gray-400 text-sm mb-6">Загрузите первый файл после входа в аккаунт.</p><Link href="/" className="inline-block px-5 py-2.5 rounded-xl bg-accent/20 text-accent-light font-medium">Загрузить файл</Link></div>
+        <div className="glass rounded-2xl p-12 text-center"><div className="text-5xl mb-4">📁</div><h2 className="text-xl font-medium mb-2">{t("noTransfers")}</h2><p className="text-gray-400 text-sm mb-6">{t("firstFile")}</p><Link href="/" className="inline-block px-5 py-2.5 rounded-xl bg-accent/20 text-accent-light font-medium">{t("uploadFile")}</Link></div>
       ) : (
         <div className={`relative transition-opacity ${loading ? "opacity-65" : ""}`}>
-          {loading && <div className="absolute -top-8 right-1 flex items-center gap-2 text-xs text-gray-500"><span className="inline-block h-3 w-3 animate-spin rounded-full border border-accent/30 border-t-accent" /> Обновляем список</div>}
+          {loading && <div className="absolute -top-8 right-1 flex items-center gap-2 text-xs text-gray-500"><span className="inline-block h-3 w-3 animate-spin rounded-full border border-accent/30 border-t-accent" /> {t("refreshing")}</div>}
           <div className="space-y-3">
           {items.map((item) => (
             <div key={item.token} className="glass rounded-2xl p-4 sm:p-5">
@@ -359,23 +364,23 @@ export default function DashboardPage() {
                 <div className="w-11 h-11 rounded-xl bg-accent/15 flex items-center justify-center text-xl flex-shrink-0">{item.kind === "group" ? "📦" : getFileIcon(item.content_encryption === "e2ee-v1" ? "application/octet-stream" : "application/octet-stream")}</div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium truncate" title={item.name}>{item.name}</p>
-                  <p className="text-sm text-gray-400 mt-1">{formatFileSize(item.size)} · {item.file_count} {item.file_count === 1 ? "файл" : "файлов"} · {formatDate(item.created_at)}</p>
+                  <p className="text-sm text-gray-400 mt-1">{formatFileSize(item.size)} · {item.file_count} {item.file_count === 1 ? t("file") : t("files")} · {formatDate(item.created_at, locale)}</p>
                   <div className="flex flex-wrap gap-2 mt-2 text-xs">
-                    <span className={`rounded-full px-2 py-1 ${item.revoked ? "bg-red-500/15 text-red-400" : item.expired ? "bg-yellow-500/15 text-yellow-400" : "bg-green-500/15 text-green-400"}`}>{statusLabel(item)}</span>
-                    {item.has_password === 1 && <span className="rounded-full px-2 py-1 bg-white/5 text-gray-400">🔒 Пароль</span>}
+                    <span className={`rounded-full px-2 py-1 ${item.revoked ? "bg-red-500/15 text-red-400" : item.expired ? "bg-yellow-500/15 text-yellow-400" : "bg-green-500/15 text-green-400"}`}>{statusLabel(item, { revoked: t("revoked"), expired: t("expired"), active: t("active") })}</span>
+                    {item.has_password === 1 && <span className="rounded-full px-2 py-1 bg-white/5 text-gray-400">🔒 {t("password")}</span>}
                     {item.content_encryption === "e2ee-v1" && <span className="rounded-full px-2 py-1 bg-accent/15 text-accent-light">🔐 E2EE</span>}
-                    <span className="rounded-full px-2 py-1 bg-white/5 text-gray-400">Скачано: {item.download_count}{item.max_downloads ? ` / ${item.max_downloads}` : ""}</span>
+                    <span className="rounded-full px-2 py-1 bg-white/5 text-gray-400">{t("downloaded")}: {item.download_count}{item.max_downloads ? ` / ${item.max_downloads}` : ""}</span>
                   </div>
                 </div>
                 <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
-                  <button type="button" onClick={() => copyLink(item)} className="w-full rounded-lg bg-accent/20 px-3 py-2 text-sm text-accent-light hover:bg-accent/30 sm:w-auto">{copied === item.token ? "Скопировано" : item.canRecreateLink ? "Копировать" : "Нет ключа"}</button>
+                  <button type="button" onClick={() => copyLink(item)} className="w-full rounded-lg bg-accent/20 px-3 py-2 text-sm text-accent-light hover:bg-accent/30 sm:w-auto">{copied === item.token ? t("copied") : item.canRecreateLink ? t("copy") : t("noKey")}</button>
                   <button type="button" onClick={() => showQr(item)} className="w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 sm:w-auto">QR</button>
-                  <button type="button" onClick={() => setEdit({ token: item.token, expiry: "keep", password: "", maxDownloads: item.max_downloads ? String(item.max_downloads) : "", clearPassword: false, clearLimit: false })} className="w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 sm:w-auto">Изменить</button>
-                  {!item.revoked ? <button type="button" onClick={() => changeStatus(item, "revoke")} className="w-full rounded-lg bg-yellow-500/10 px-3 py-2 text-sm text-yellow-400 hover:bg-yellow-500/20 sm:w-auto">Отозвать</button> : <button type="button" onClick={() => changeStatus(item, "restore")} className="w-full rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-400 hover:bg-green-500/20 sm:w-auto">Восстановить</button>}
-                  <button type="button" onClick={() => deleteItem(item)} className="w-full rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 sm:w-auto">Удалить</button>
+                  <button type="button" onClick={() => setEdit({ token: item.token, expiry: "keep", password: "", maxDownloads: item.max_downloads ? String(item.max_downloads) : "", clearPassword: false, clearLimit: false })} className="w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 sm:w-auto">{t("edit")}</button>
+                  {!item.revoked ? <button type="button" onClick={() => changeStatus(item, "revoke")} className="w-full rounded-lg bg-yellow-500/10 px-3 py-2 text-sm text-yellow-400 hover:bg-yellow-500/20 sm:w-auto">{t("revoke")}</button> : <button type="button" onClick={() => changeStatus(item, "restore")} className="w-full rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-400 hover:bg-green-500/20 sm:w-auto">{t("restore")}</button>}
+                  <button type="button" onClick={() => deleteItem(item)} className="w-full rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 sm:w-auto">{t("delete")}</button>
                 </div>
               </div>
-              {item.expires_at && <p className="text-xs text-gray-500 mt-3">Действует до: {formatDate(item.expires_at)}</p>}
+              {item.expires_at && <p className="text-xs text-gray-500 mt-3">{t("expiresAt")}: {formatDate(item.expires_at, locale)}</p>}
               {edit?.token === item.token && (
                 <EditTransferPanel
                   edit={edit}
@@ -392,21 +397,21 @@ export default function DashboardPage() {
       )}
 
       {totalPages > 1 && (
-        <nav aria-label="Пагинация файлов" className="mt-6 flex flex-col items-center justify-between gap-3 sm:flex-row">
+        <nav aria-label={t("files")} className="mt-6 flex flex-col items-center justify-between gap-3 sm:flex-row">
           <p className="text-sm text-gray-500">
-            Показано {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} из {total}
+            {t("shown", { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, total), total })}
           </p>
           <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 sm:justify-end">
             <button
               type="button"
-              aria-label="Предыдущая страница"
+              aria-label={t("previousPage")}
               disabled={page <= 1}
               onClick={() => setPage((value) => value - 1)}
               className="rounded-xl bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Назад
+              {t("back")}
             </button>
-            <div className="flex items-center gap-1" aria-label="Страницы списка">
+            <div className="flex items-center gap-1" aria-label={t("files")}>
               {getPaginationPages(totalPages, page).map((pageNumber, index) => (
                 pageNumber === "ellipsis" ? (
                   <span key={`ellipsis-${index}`} aria-hidden="true" className="px-1 text-gray-500">…</span>
@@ -414,7 +419,7 @@ export default function DashboardPage() {
                   <button
                     key={pageNumber}
                     type="button"
-                    aria-label={`Страница ${pageNumber}`}
+                    aria-label={`${pageNumber}`}
                     aria-current={pageNumber === page ? "page" : undefined}
                     onClick={() => setPage(pageNumber)}
                     className={`h-9 min-w-9 rounded-xl px-2 text-sm transition-colors ${pageNumber === page ? "bg-accent text-white" : "bg-white/5 text-gray-300 hover:bg-white/10"}`}
@@ -426,18 +431,18 @@ export default function DashboardPage() {
             </div>
             <button
               type="button"
-              aria-label="Следующая страница"
+              aria-label={t("nextPage")}
               disabled={page >= totalPages}
               onClick={() => setPage((value) => value + 1)}
               className="rounded-xl bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Вперёд
+              {t("forward")}
             </button>
           </div>
         </nav>
       )}
 
-      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-3 py-4 sm:px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-4 text-center shadow-2xl sm:p-6"><h2 className="mb-4 text-xl font-semibold">QR-код</h2><div className="inline-block max-w-full rounded-xl bg-white p-3"><Image className="h-auto max-w-full" src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="mt-4 break-all text-sm text-gray-400">{qr.name}</p><div className="mt-5 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={copyQr} className="flex-1 rounded-xl bg-accent/20 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30">{qrCopied ? "QR-код скопирован" : "Копировать QR"}</button><button type="button" onClick={() => setQr(null)} className="flex-1 rounded-xl bg-white/5 py-2.5 text-sm text-gray-300">Закрыть</button></div></div></div>}
+      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-3 py-4 sm:px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-4 text-center shadow-2xl sm:p-6"><h2 className="mb-4 text-xl font-semibold">{t("qrCode")}</h2><div className="inline-block max-w-full rounded-xl bg-white p-3"><Image className="h-auto max-w-full" src={qr.dataUrl} alt={`${t("qrCode")}: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="mt-4 break-all text-sm text-gray-400">{qr.name}</p><div className="mt-5 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={copyQr} className="flex-1 rounded-xl bg-accent/20 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30">{qrCopied ? t("qrCopied") : t("copyQr")}</button><button type="button" onClick={() => setQr(null)} className="flex-1 rounded-xl bg-white/5 py-2.5 text-sm text-gray-300">{t("close")}</button></div></div></div>}
     </div>
   );
 }

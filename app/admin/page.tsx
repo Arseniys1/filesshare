@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { formatFileSize } from "@/lib/utils";
 
 interface Stats {
@@ -27,6 +28,7 @@ const sections = [
 ];
 
 export default function AdminOverviewPage() {
+  const t = useTranslations("admin");
   const [stats, setStats] = useState<Stats | null>(null);
   const [auditEvents, setAuditEvents] = useState<AdminAudit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export default function AdminOverviewPage() {
   }, []);
 
   if (loading) {
-    return <div className="glass rounded-2xl p-12 text-center text-gray-400">Загрузка обзора...</div>;
+    return <div className="glass rounded-2xl p-12 text-center text-gray-400">{t("loading")}</div>;
   }
 
   return (

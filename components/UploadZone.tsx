@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState, useCallback, useRef } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import QRCode from "qrcode";
 import {
   addE2EEKeysToShareUrl,
@@ -55,6 +56,8 @@ export default function UploadZone({
   maxFileSize,
   maxFileSizeLabel,
 }: UploadZoneProps) {
+  const t = useTranslations("upload");
+  const locale = useLocale();
   const [isDragging, setIsDragging] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -112,9 +115,9 @@ export default function UploadZone({
       }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Не удалось создать группу файлов");
+    if (!response.ok) throw new Error(data.error || t("groupCreateError"));
     return data.group;
-  }, [expiry, maxDownloads, password]);
+  }, [expiry, maxDownloads, password, t]);
 
   const uploadSingle = useCallback(async (file: File, groupToken?: string): Promise<UploadedFile> => {
     if (endToEndEncryption) {
@@ -156,10 +159,10 @@ export default function UploadZone({
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || "Ошибка загрузки");
+      throw new Error(data.error || t("uploadError"));
     }
     return data.file;
-  }, [endToEndEncryption, expiry, maxDownloads, password, uploadProgressOptions]);
+  }, [endToEndEncryption, expiry, maxDownloads, password, t, uploadProgressOptions]);
 
   const uploadFiles = useCallback(
     async (files: File[]) => {
@@ -169,8 +172,8 @@ export default function UploadZone({
       if (tooLarge.length > 0) {
         setGlobalError(
           tooLarge.length === 1
-            ? `${tooLarge[0].name}: превышает лимит ${maxFileSizeLabel}`
-            : `${tooLarge.length} файлов превышают лимит ${maxFileSizeLabel}:\n${tooLarge.map((f) => f.name).join("\n")}`
+            ? t("tooLargeOne", { name: tooLarge[0].name, limit: maxFileSizeLabel })
+            : t("tooLargeMany", { count: tooLarge.length, limit: maxFileSizeLabel, names: tooLarge.map((f) => f.name).join("\n") })
         );
         return;
       }
@@ -199,8 +202,8 @@ export default function UploadZone({
         try {
           group = await createGroup();
         } catch (err) {
-          const msg = err instanceof Error ? err.message : "Ошибка создания группы файлов";
-          errors.push(`Группа файлов: ${msg}`);
+          const msg = err instanceof Error ? err.message : t("groupError");
+          errors.push(`${t("groupLabel")}: ${msg}`);
           setQueue((prev) => prev.map((q) => ({ ...q, status: "error", error: msg })));
         }
       }
@@ -225,7 +228,7 @@ export default function UploadZone({
           );
         } catch (err) {
           const msg =
-            err instanceof Error ? err.message : "Ошибка загрузки";
+            err instanceof Error ? err.message : t("uploadError");
           errors.push(`${item.file.name}: ${msg}`);
 
           setQueue((prev) =>
@@ -247,7 +250,7 @@ export default function UploadZone({
           : group.shareUrl;
         const groupResult: UploadedFile = {
           token: group.token,
-          name: `Пакет из ${results.length} файлов`,
+          name: t("package", { count: results.length }),
           size: results.reduce((total, result) => total + result.size, 0),
           mimeType: "application/octet-stream",
           shareUrl,
@@ -270,7 +273,7 @@ export default function UploadZone({
             ? errors.join("\n")
             : errors.length === items.length
               ? errors.join("\n")
-              : `Не загружено ${errors.length} из ${items.length}:\n${errors.join("\n")}`
+              : t("notUploaded", { failed: errors.length, total: items.length, errors: errors.join("\n") })
         );
       }
 
@@ -280,7 +283,7 @@ export default function UploadZone({
       const resolvers = resumeResolversRef.current.splice(0);
       resolvers.forEach((resolve) => resolve());
     },
-    [createGroup, linkMode, maxFileSize, maxFileSizeLabel, uploadSingle]
+    [createGroup, linkMode, maxFileSize, maxFileSizeLabel, t, uploadSingle]
   );
 
   const handleFiles = useCallback(
@@ -328,7 +331,7 @@ export default function UploadZone({
 
   const showQr = async (file: UploadedFile) => {
     setQrCopied(false);
-    setQr({ name: file.isGroup ? `Пакет из ${file.fileCount} файлов` : file.name, dataUrl: await QRCode.toDataURL(file.shareUrl, { width: 280, margin: 2 }) });
+    setQr({ name: file.isGroup ? t("package", { count: file.fileCount ?? 0 }) : file.name, dataUrl: await QRCode.toDataURL(file.shareUrl, { width: 280, margin: 2 }) });
   };
 
   const copyQr = async () => {
@@ -338,7 +341,7 @@ export default function UploadZone({
       setQrCopied(true);
       window.setTimeout(() => setQrCopied(false), 1800);
     } catch (copyError) {
-      setGlobalError(copyError instanceof Error ? copyError.message : "Не удалось скопировать QR-код");
+      setGlobalError(copyError instanceof Error ? copyError.message : t("qrCopyError"));
     }
   };
 
@@ -400,8 +403,8 @@ export default function UploadZone({
           <div className="space-y-3">
             <p className="text-lg font-medium">
               {totalCount > 1 && linkMode === "group"
-                ? "Загрузка группы файлов..."
-                : `Загрузка ${doneCount + 1} из ${totalCount}...`}
+                ? t("uploadingGroup")
+                : t("uploadingFile", { current: doneCount + 1, total: totalCount })}
             </p>
             <div className="mx-auto h-2 w-64 max-w-full overflow-hidden rounded-full bg-surface-overlay">
               <div
@@ -414,11 +417,11 @@ export default function UploadZone({
         ) : (
           <>
             <p className="text-xl font-medium mb-2">
-              Перетащите файлы сюда или{" "}
-              <span className="gradient-text">выберите</span>
+              {t("dropFiles")}{" "}
+              <span className="gradient-text">{t("choose")}</span>
             </p>
             <p className="text-gray-400 text-sm">
-              Можно загрузить несколько файлов · до {maxFileSizeLabel} каждый
+              {t("multipleFiles", { limit: maxFileSizeLabel })}
             </p>
           </>
         )}
@@ -427,20 +430,20 @@ export default function UploadZone({
       {uploading && transferProgress.total > 0 && (
         <div className="glass rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between text-xs text-gray-400 mb-2"><span>{paused ? "Загрузка приостановлена" : "Текущий файл"}</span><span>{Math.round((transferProgress.uploaded / transferProgress.total) * 100)}%</span></div>
+            <div className="flex items-center justify-between text-xs text-gray-400 mb-2"><span>{paused ? t("paused") : t("currentFile")}</span><span>{Math.round((transferProgress.uploaded / transferProgress.total) * 100)}%</span></div>
             <div className="h-2 bg-surface-overlay rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-accent to-purple-500 transition-all" style={{ width: `${Math.min(100, (transferProgress.uploaded / transferProgress.total) * 100)}%` }} /></div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mt-2"><span>{formatFileSize(transferProgress.uploaded)} / {formatFileSize(transferProgress.total)}</span>{transferProgress.totalParts > 0 && <span>Части: {transferProgress.parts} / {transferProgress.totalParts}</span>}{transferProgress.speed > 0 && <span>{formatFileSize(transferProgress.speed)} / с</span>}{transferProgress.remaining > 0 && <span>Осталось: {Math.ceil(transferProgress.remaining)} с</span>}</div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mt-2"><span>{formatFileSize(transferProgress.uploaded)} / {formatFileSize(transferProgress.total)}</span>{transferProgress.totalParts > 0 && <span>{t("parts", { current: transferProgress.parts, total: transferProgress.totalParts })}</span>}{transferProgress.speed > 0 && <span>{formatFileSize(transferProgress.speed)} {t("perSecond")}</span>}{transferProgress.remaining > 0 && <span>{t("remaining", { seconds: Math.ceil(transferProgress.remaining) })}</span>}</div>
           </div>
-          <button type="button" onClick={paused ? resumeUpload : pauseUpload} className="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-white/5 text-gray-300 text-sm hover:bg-white/10">{paused ? "Продолжить" : "Пауза"}</button>
+          <button type="button" onClick={paused ? resumeUpload : pauseUpload} className="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-white/5 text-gray-300 text-sm hover:bg-white/10">{paused ? t("resume") : t("pause")}</button>
         </div>
       )}
 
       <div className="glass relative z-40 space-y-4 rounded-2xl p-4 sm:p-6">
-        <h3 className="font-medium text-gray-300">Настройки доступа</h3>
+        <h3 className="font-medium text-gray-300">{t("accessSettings")}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">
-              Срок действия
+              {t("expiry")}
             </label>
             <ThemedSelect
               value={expiry}
@@ -448,31 +451,31 @@ export default function UploadZone({
               onChange={setExpiry}
               disabled={uploading}
               className="w-full"
-              ariaLabel="Срок действия ссылки"
+              ariaLabel={t("expiryAria")}
             />
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">
-              Пароль (необязательно)
+              {t("optionalPassword")}
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Защитить паролем"
+              placeholder={t("protectWithPassword")}
               disabled={uploading}
               className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600 disabled:opacity-50"
             />
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">
-              Лимит скачиваний
+              {t("downloadLimit")}
             </label>
             <input
               type="number"
               value={maxDownloads}
               onChange={(e) => setMaxDownloads(e.target.value)}
-              placeholder="Без ограничения"
+              placeholder={t("unlimited")}
               min="1"
               disabled={uploading}
               className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600 disabled:opacity-50"
@@ -480,10 +483,10 @@ export default function UploadZone({
           </div>
         </div>
         <div>
-          <span className="block text-sm text-gray-400 mb-1.5">Ссылки на файлы</span>
+          <span className="block text-sm text-gray-400 mb-1.5">{t("fileLinks")}</span>
           <div
             role="radiogroup"
-            aria-label="Способ создания ссылок"
+            aria-label={t("linkModeAria")}
             className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-surface-overlay p-1.5"
           >
             <button
@@ -505,8 +508,8 @@ export default function UploadZone({
                 </svg>
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium">Одна общая ссылка</span>
-                <span className="mt-0.5 block text-xs opacity-70">Список файлов и «Скачать всё»</span>
+                <span className="block text-sm font-medium">{t("oneGroupLink")}</span>
+                <span className="mt-0.5 block text-xs opacity-70">{t("groupLinkDescription")}</span>
               </span>
               {linkMode === "group" && (
                 <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -532,8 +535,8 @@ export default function UploadZone({
                 </svg>
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium">Отдельная ссылка</span>
-                <span className="mt-0.5 block text-xs opacity-70">Своя ссылка для каждого файла</span>
+                <span className="block text-sm font-medium">{t("individualLink")}</span>
+                <span className="mt-0.5 block text-xs opacity-70">{t("individualLinkDescription")}</span>
               </span>
               {linkMode === "individual" && (
                 <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -573,24 +576,24 @@ export default function UploadZone({
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
-              Сквозное шифрование
+              {t("endToEnd")}
               <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-medium text-accent-light">
                 E2EE
               </span>
             </span>
             <span className="mt-1 block text-xs text-gray-400">
-              Ключ будет только в ссылке. Потеря ссылки означает потерю доступа.
+              {t("e2eeWarning")}
             </span>
           </span>
           <span className={`hidden shrink-0 text-xs sm:block ${endToEndEncryption ? "text-accent-light" : "text-gray-500"}`}>
-            {endToEndEncryption ? "Включено" : "Выключено"}
+            {endToEndEncryption ? t("enabled") : t("disabled")}
           </span>
         </label>
       </div>
 
       {queue.length > 0 && (
         <div className="space-y-2 animate-slide-up">
-          <h3 className="font-medium text-gray-300">Очередь загрузки</h3>
+          <h3 className="font-medium text-gray-300">{t("queue")}</h3>
           {queue.map((item) => (
             <div
               key={item.id}
@@ -628,14 +631,14 @@ export default function UploadZone({
         <div className="space-y-3 animate-slide-up">
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-gray-300">
-              Ссылки на файлы ({uploadedFiles.length})
+              {t("fileLinksCount", { count: uploadedFiles.length })}
             </h3>
             {uploadedFiles.length > 1 && (
               <button
                 onClick={copyAllLinks}
                 className="px-3 py-1.5 rounded-lg bg-accent/20 text-accent-light text-sm font-medium hover:bg-accent/30 transition-colors"
               >
-                {copiedToken === "all" ? "Скопировано!" : "Копировать все ссылки"}
+                {copiedToken === "all" ? t("copied") : t("copyAll")}
               </button>
             )}
           </div>
@@ -661,21 +664,21 @@ export default function UploadZone({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">
-                  {file.isGroup ? `Пакет из ${file.fileCount} файлов` : file.name}
+                  {file.isGroup ? t("package", { count: file.fileCount ?? 0 }) : file.name}
                 </p>
                 <p className="text-sm text-gray-400">
                   {file.isGroup
-                    ? `${file.fileCount} файлов · ${formatFileSize(file.size)}`
+                    ? t("filesSize", { count: file.fileCount ?? 0, size: formatFileSize(file.size) })
                     : formatFileSize(file.size)}
                   {file.expiresAt && (
                     <span>
                       {" "}
-                      · до{" "}
-                      {new Date(file.expiresAt).toLocaleDateString("ru-RU")}
+                      · {t("until")}{" "}
+                      {new Date(file.expiresAt).toLocaleDateString(locale)}
                     </span>
                   )}
-                  {file.hasPassword && <span> · 🔒 с паролем</span>}
-                  {file.storageEncrypted && <span> · 🛡️ зашифрован в хранилище</span>}
+                  {file.hasPassword && <span> · 🔒 {t("withPassword")}</span>}
+                  {file.storageEncrypted && <span> · 🛡️ {t("storageEncrypted")}</span>}
                 </p>
               </div>
               <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-shrink-0">
@@ -691,7 +694,7 @@ export default function UploadZone({
                   onClick={() => copyLink(file.shareUrl, file.token)}
                   className="w-full rounded-lg bg-accent/20 px-4 py-2 text-sm font-medium text-accent-light transition-colors hover:bg-accent/30 sm:w-auto"
                 >
-                  {copiedToken === file.token ? "Скопировано!" : "Копировать"}
+                  {copiedToken === file.token ? t("copied") : t("copy")}
                 </button>
               </div>
             </div>
@@ -699,7 +702,7 @@ export default function UploadZone({
         </div>
       )}
 
-      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-3 py-4 sm:px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-4 text-center shadow-2xl sm:p-6"><h2 className="mb-4 text-xl font-semibold">QR-код</h2><div className="inline-block max-w-full rounded-xl bg-white p-3"><Image className="h-auto max-w-full" src={qr.dataUrl} alt={`QR-код: ${qr.name}`} width={256} height={256} unoptimized /></div><p className="mt-4 break-all text-sm text-gray-400">{qr.name}</p><div className="mt-5 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={copyQr} className="flex-1 rounded-xl bg-accent/20 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30">{qrCopied ? "QR-код скопирован" : "Копировать QR"}</button><button type="button" onClick={() => setQr(null)} className="flex-1 rounded-xl bg-white/5 py-2.5 text-sm text-gray-300">Закрыть</button></div></div></div>}
+      {qr && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-3 py-4 sm:px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setQr(null); }}><div className="glass max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-4 text-center shadow-2xl sm:p-6"><h2 className="mb-4 text-xl font-semibold">{t("qrCode")}</h2><div className="inline-block max-w-full rounded-xl bg-white p-3"><Image className="h-auto max-w-full" src={qr.dataUrl} alt={t("qrAlt", { name: qr.name })} width={256} height={256} unoptimized /></div><p className="mt-4 break-all text-sm text-gray-400">{qr.name}</p><div className="mt-5 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={copyQr} className="flex-1 rounded-xl bg-accent/20 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30">{qrCopied ? t("qrCopied") : t("copyQr")}</button><button type="button" onClick={() => setQr(null)} className="flex-1 rounded-xl bg-white/5 py-2.5 text-sm text-gray-300">{t("close")}</button></div></div></div>}
     </div>
   );
 }

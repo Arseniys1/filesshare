@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import GuestOnly from "@/components/GuestOnly";
+import { useTranslations } from "next-intl";
 
 export default function RegisterPage() {
+  const t = useTranslations("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
@@ -22,10 +24,10 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, password, passwordConfirmation }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Не удалось зарегистрироваться");
+      if (!response.ok) throw new Error(data.error || t("registerError"));
       window.location.href = data.user?.role === "admin" ? "/admin" : "/";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось зарегистрироваться");
+      setError(err instanceof Error ? err.message : t("registerError"));
     } finally {
       setLoading(false);
     }
@@ -35,9 +37,9 @@ export default function RegisterPage() {
     <GuestOnly>
       <div className="mx-auto max-w-md px-3 py-12 animate-fade-in sm:px-4 sm:py-24">
       <div className="glass rounded-2xl p-5 gradient-border sm:p-8">
-        <h1 className="text-2xl font-bold text-center mb-2">Регистрация</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">{t("registerTitle")}</h1>
         <p className="text-gray-400 text-sm text-center mb-8">
-          Первый зарегистрированный пользователь получает роль администратора.
+          {t("registerDescription")}
         </p>
         <form onSubmit={submit} className="space-y-4">
           <div>
@@ -56,7 +58,7 @@ export default function RegisterPage() {
           </div>
           <div>
             <label htmlFor="register-password" className="block text-sm text-gray-400 mb-1.5">
-              Пароль
+              {t("password")}
             </label>
             <input
               id="register-password"
@@ -74,7 +76,7 @@ export default function RegisterPage() {
               htmlFor="register-password-confirmation"
               className="block text-sm text-gray-400 mb-1.5"
             >
-              Повторите пароль
+              {t("passwordConfirmation")}
             </label>
             <input
               id="register-password-confirmation"
@@ -93,13 +95,13 @@ export default function RegisterPage() {
             disabled={loading}
             className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {loading ? "Создаём аккаунт..." : "Зарегистрироваться"}
+            {loading ? t("creatingAccount") : t("createAccount")}
           </button>
         </form>
         <p className="mt-6 text-center text-sm text-gray-400">
-          Уже есть аккаунт?{" "}
+          {t("alreadyHaveAccount")}{" "}
           <Link href="/login" className="text-accent-light hover:underline">
-            Войти
+            {t("login")}
           </Link>
         </p>
       </div>

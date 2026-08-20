@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   decryptE2EEToBlob,
   downloadE2EEFile,
@@ -60,6 +61,8 @@ function getDownloadError(response: Response, fallback: string): Promise<Error> 
 }
 
 export default function SharePage() {
+  const t = useTranslations("share");
+  const locale = useLocale();
   const params = useParams();
   const token = params.token as string;
 
@@ -83,14 +86,14 @@ export default function SharePage() {
 
         setFile(data as ShareInfo);
       } catch {
-        setError("Не удалось загрузить информацию о файле");
+        setError(t("loadError"));
       } finally {
         setLoading(false);
       }
     }
 
     fetchFile();
-  }, [token]);
+  }, [t, token]);
 
   const authorizeAccess = async (): Promise<boolean> => {
     if (!file?.hasPassword) return true;
@@ -102,7 +105,7 @@ export default function SharePage() {
     });
     if (res.ok) return true;
 
-    const accessError = await getDownloadError(res, "Неверный пароль");
+    const accessError = await getDownloadError(res, t("wrongPassword"));
     setNeedsPassword(true);
     setError(accessError.message);
     return false;
@@ -122,7 +125,7 @@ export default function SharePage() {
   const downloadOne = async (target: SharedFileInfo): Promise<void> => {
     const rawKey = getE2EEKey(target);
     if (target.contentEncryption === "e2ee-v1" && !rawKey) {
-      throw new Error("В ссылке отсутствует ключ сквозного шифрования для этого файла");
+      throw new Error(t("missingE2eeKey"));
     }
     if (target.contentEncryption !== "e2ee-v1") {
       window.location.assign(`/api/download/${encodeURIComponent(target.token)}`);
@@ -131,7 +134,7 @@ export default function SharePage() {
 
     const response = await fetch(`/api/download/${encodeURIComponent(target.token)}`);
     if (!response.ok) {
-      throw await getDownloadError(response, "Не удалось получить файл");
+      throw await getDownloadError(response, t("downloadError"));
     }
 
     await downloadE2EEFile({
@@ -151,7 +154,7 @@ export default function SharePage() {
       if (target.contentEncryption !== "e2ee-v1") continue;
       const rawKey = getE2EEKey(target);
       if (!rawKey) {
-        throw new Error(`В ссылке отсутствует ключ для файла «${target.name}»`);
+        throw new Error(t("missingFileKey", { name: target.name }));
       }
       keys[target.token] = rawKey;
     }
@@ -159,12 +162,12 @@ export default function SharePage() {
     for (const target of group.files) {
       const response = await fetch(`/api/download/${encodeURIComponent(target.token)}`);
       if (!response.ok) {
-        throw await getDownloadError(response, `Не удалось получить файл «${target.name}»`);
+        throw await getDownloadError(response, `${t("downloadError")} «${target.name}»`);
       }
 
       let blob: Blob;
       if (target.contentEncryption === "e2ee-v1") {
-        if (!response.body) throw new Error("Сервер не вернул содержимое файла");
+        if (!response.body) throw new Error(t("serverNoContent"));
         blob = await decryptE2EEToBlob(
           response.body,
           keys[target.token],
@@ -204,7 +207,7 @@ export default function SharePage() {
       setError(
         downloadError instanceof Error
           ? downloadError.message
-          : "Ошибка при скачивании"
+          : t("downloadFailed")
       );
     } finally {
       setDownloading(false);
@@ -215,7 +218,7 @@ export default function SharePage() {
     return (
       <div className="max-w-lg mx-auto px-4 py-32 text-center">
         <div className="w-12 h-12 mx-auto border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-        <p className="mt-4 text-gray-400">Загрузка...</p>
+        <p className="mt-4 text-gray-400">{t("loading")}</p>
       </div>
     );
   }
@@ -224,7 +227,7 @@ export default function SharePage() {
     return (
       <div className="max-w-lg mx-auto px-4 py-32 text-center animate-fade-in">
         <div className="text-6xl mb-4">😔</div>
-        <h1 className="text-2xl font-bold mb-2">Файл недоступен</h1>
+        <h1 className="text-2xl font-bold mb-2">{t("unavailable")}</h1>
         <p className="text-gray-400">{error}</p>
       </div>
     );
@@ -248,28 +251,28 @@ export default function SharePage() {
           <h1 className="text-xl font-bold mb-1 break-all">{file.name}</h1>
           <p className="text-gray-400 text-sm">
             {isGroup
-              ? `${file.files.length} файлов · ${formatFileSize(file.size)}`
+              ? t("filesCount", { count: file.files.length, size: formatFileSize(file.size) })
               : formatFileSize(file.size)}
           </p>
         </div>
 
         <div className="space-y-3 mb-8">
           <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
-            <span className="text-gray-400">Загружен</span>
-            <span>{formatDate(file.createdAt)}</span>
+            <span className="text-gray-400">{t("uploaded")}</span>
+            <span>{formatDate(file.createdAt, locale)}</span>
           </div>
           {file.expiresAt && (
             <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
-              <span className="text-gray-400">Действует до</span>
+              <span className="text-gray-400">{t("expires")}</span>
               <span className={file.expired ? "text-red-400" : ""}>
-                {formatDate(file.expiresAt)}
+                {formatDate(file.expiresAt, locale)}
               </span>
             </div>
           )}
           {file.maxDownloads && (
             <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
               <span className="text-gray-400">
-                {isGroup ? "Скачивания файлов" : "Скачивания"}
+                {isGroup ? t("fileDownloads") : t("downloads")}
               </span>
               <span>
                 {file.downloadCount} / {file.maxDownloads}
@@ -278,20 +281,20 @@ export default function SharePage() {
           )}
           {file.hasPassword && (
             <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
-              <span className="text-gray-400">Защита</span>
-              <span>🔒 Пароль</span>
+              <span className="text-gray-400">{t("protection")}</span>
+              <span>🔒 {t("passwordProtected")}</span>
             </div>
           )}
           {e2eeFiles > 0 && (
             <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
-              <span className="text-gray-400">Шифрование</span>
-              <span>🔐 Сквозное{isGroup ? ` · ${e2eeFiles} файла` : ""}</span>
+              <span className="text-gray-400">{t("encryption")}</span>
+              <span>🔐 {t("endToEndShort")}{isGroup ? ` · ${e2eeFiles}` : ""}</span>
             </div>
           )}
           {!isGroup && file.storageEncrypted && (
             <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
-              <span className="text-gray-400">Хранение</span>
-              <span>🛡️ Зашифровано</span>
+              <span className="text-gray-400">{t("storage")}</span>
+              <span>🛡️ {t("encrypted")}</span>
             </div>
           )}
         </div>
@@ -300,10 +303,10 @@ export default function SharePage() {
           <div className="text-center py-4">
             <p className="text-red-400 font-medium">
               {file.revoked
-                ? "Ссылка отозвана"
+                ? t("revoked")
                 : file.expired
-                ? "Срок действия ссылки истёк"
-                : "Достигнут лимит скачиваний"}
+                ? t("expired")
+                : t("downloadsExceeded")}
             </p>
           </div>
         ) : (
@@ -313,7 +316,7 @@ export default function SharePage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Введите пароль"
+                placeholder={t("enterPassword")}
                 className="w-full bg-surface-overlay border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 transition-colors placeholder:text-gray-600"
               />
             )}
@@ -323,8 +326,8 @@ export default function SharePage() {
               <>
                 <div className="rounded-2xl border border-white/10 bg-surface-overlay/50 p-3 sm:p-4">
                   <div className="flex items-center justify-between gap-3 mb-3">
-                    <h2 className="font-medium">Файлы в ссылке</h2>
-                    <span className="text-xs text-gray-500">{file.files.length} шт.</span>
+                    <h2 className="font-medium">{t("filesInLink")}</h2>
+                    <span className="text-xs text-gray-500">{t("items", { count: file.files.length })}</span>
                   </div>
                   <div className="space-y-2">
                     {file.files.map((item) => (
@@ -338,7 +341,7 @@ export default function SharePage() {
                           <p className="text-xs text-gray-500">
                             {formatFileSize(item.size)}
                             {item.contentEncryption === "e2ee-v1" && " · E2EE"}
-                            {item.storageEncrypted && " · хранилище защищено"}
+                            {item.storageEncrypted && ` · ${t("storage")} ${t("encrypted").toLowerCase()}`}
                           </p>
                         </div>
                         <button
@@ -347,7 +350,7 @@ export default function SharePage() {
                           disabled={downloading}
                           className="flex-shrink-0 rounded-lg bg-accent/15 px-3 py-2 text-sm font-medium text-accent-light transition-colors hover:bg-accent/25 disabled:opacity-50"
                         >
-                          Скачать
+                          {t("download")}
                         </button>
                       </div>
                     ))}
@@ -360,10 +363,10 @@ export default function SharePage() {
                   disabled={downloading}
                   className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50 animate-pulse-glow"
                 >
-                  {downloading ? "Подготовка архива..." : "Скачать всё"}
+                  {downloading ? t("preparingArchive") : t("downloadAll")}
                 </button>
                 <p className="text-center text-xs text-gray-500">
-                  Архив создаётся в браузере после скачивания файлов.
+                  {t("archiveNote")}
                 </p>
               </>
             ) : (
@@ -374,10 +377,10 @@ export default function SharePage() {
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50 animate-pulse-glow"
               >
                 {downloading
-                  ? "Расшифровка..."
+                  ? t("decrypting")
                   : file.contentEncryption === "e2ee-v1"
-                    ? "Расшифровать и скачать"
-                    : "Скачать файл"}
+                    ? t("decryptAndDownload")
+                    : t("downloadFile")}
               </button>
             )}
           </div>

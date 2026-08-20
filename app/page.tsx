@@ -1,10 +1,12 @@
 import UploadZone from "@/components/UploadZone";
+import { getTranslations } from "next-intl/server";
 import {
   getMaxFileSizeBytes,
   getMaxFileSizeLabel,
 } from "@/lib/telegram-config";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const t = await getTranslations("home");
   const maxFileSize = getMaxFileSizeBytes();
   const maxFileSizeLabel = getMaxFileSizeLabel();
 
@@ -12,13 +14,11 @@ export default function HomePage() {
     <div className="mx-auto max-w-3xl px-4 py-10 animate-fade-in sm:py-16">
       <div className="mb-10 text-center sm:mb-12">
         <h1 className="mb-4 text-4xl font-bold leading-tight sm:text-5xl">
-          Безопасный обмен{" "}
-          <span className="gradient-text">файлами</span>
+          {t("title").split(" ").slice(0, -1).join(" ")}{" "}
+          <span className="gradient-text">{t("title").split(" ").at(-1)}</span>
         </h1>
         <p className="mx-auto max-w-xl text-base leading-7 text-gray-400 sm:text-lg">
-          Загружайте файлы пачкой и получайте одну общую ссылку.
-          Каждый файл можно скачать отдельно или получить всё сразу.
-          Защищённое хранение с ограничением доступа по времени.
+          {t("description")}
         </p>
       </div>
 
@@ -30,18 +30,18 @@ export default function HomePage() {
         {[
           {
             icon: "⚡",
-            title: "Быстрая загрузка",
-            desc: "Файлы быстро сохраняются в защищённое хранилище",
+            title: t("fastTitle"),
+            desc: t("fastDescription"),
           },
           {
             icon: "🔒",
-            title: "Контроль доступа",
-            desc: "Ограничение по времени, паролю и числу скачиваний",
+            title: t("accessTitle"),
+            desc: t("accessDescription"),
           },
           {
             icon: "☁️",
-            title: "Надёжное хранение",
-            desc: "Файлы доступны по ссылке с заданными ограничениями",
+            title: t("storageTitle"),
+            desc: t("storageDescription"),
           },
         ].map((feature) => (
           <div

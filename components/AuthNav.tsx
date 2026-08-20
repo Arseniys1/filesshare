@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 interface AuthUser {
   email: string;
@@ -9,6 +10,7 @@ interface AuthUser {
 }
 
 export default function AuthNav() {
+  const t = useTranslations("nav");
   const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
@@ -25,13 +27,13 @@ export default function AuthNav() {
           href="/login"
           className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white sm:px-3"
         >
-          Войти
+          {t("login")}
         </Link>
         <Link
           href="/register"
           className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-accent-light transition-colors hover:bg-white/5 hover:text-white sm:px-3"
         >
-          Регистрация
+          {t("register")}
         </Link>
       </>
     );
@@ -43,19 +45,19 @@ export default function AuthNav() {
         href="/dashboard"
         className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white sm:px-3"
       >
-        Мои файлы
+        {t("myFiles")}
       </Link>
       {user.role === "admin" && (
         <Link
           href="/admin"
           className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white sm:px-3"
         >
-          Админ
+        {t("admin")}
         </Link>
       )}
       <Link
         href="/profile"
-        title="Профиль"
+        title={t("profile")}
         className="hidden max-w-40 shrink-0 truncate text-sm text-gray-500 transition-colors hover:text-white sm:inline"
       >
         {user.email}
@@ -68,7 +70,7 @@ export default function AuthNav() {
         }}
         className="shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm text-gray-400 transition-colors hover:bg-white/5 hover:text-white sm:px-3"
       >
-        Выйти
+        {t("logout")}
       </button>
     </>
   );

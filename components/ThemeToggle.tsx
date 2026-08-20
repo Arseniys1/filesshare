@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 export type ThemeMode = "system" | "light" | "dark";
 
@@ -59,13 +60,8 @@ function ThemeIcon({ mode, size = 18 }: { mode: ThemeMode; size?: number }) {
   );
 }
 
-const themeOptions: Array<{ mode: ThemeMode; label: string }> = [
-  { mode: "system", label: "Системная" },
-  { mode: "light", label: "Светлая" },
-  { mode: "dark", label: "Тёмная" },
-];
-
 export default function ThemeToggle() {
+  const t = useTranslations("theme");
   const [mode, setMode] = useState<ThemeMode>("system");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,12 +107,18 @@ export default function ThemeToggle() {
     setOpen(false);
   }
 
+  const themeOptions: Array<{ mode: ThemeMode; label: string }> = [
+    { mode: "system", label: t("system") },
+    { mode: "light", label: t("light") },
+    { mode: "dark", label: t("dark") },
+  ];
+
   return (
-    <div ref={containerRef} className="fixed bottom-5 right-5 z-[60] sm:bottom-6 sm:right-6">
+    <div ref={containerRef} className="relative">
       {open && (
         <div
           role="menu"
-          aria-label="Тема оформления"
+          aria-label={t("menu")}
           className="absolute bottom-14 right-0 w-44 overflow-hidden rounded-2xl border border-white/10 bg-surface-overlay/95 p-2 shadow-2xl shadow-black/20 backdrop-blur-xl animate-fade-in"
         >
           <div className="space-y-1">
@@ -147,7 +149,7 @@ export default function ThemeToggle() {
       )}
       <button
         type="button"
-        aria-label="Выбрать тему оформления"
+        aria-label={t("label")}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}

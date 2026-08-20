@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 interface AdminShellProps {
   children: ReactNode;
@@ -11,13 +12,15 @@ interface AdminShellProps {
 type AuthState = "loading" | "allowed" | "unauthenticated" | "forbidden";
 
 const navigation = [
-  { href: "/admin", label: "Обзор", icon: "⌂" },
-  { href: "/admin/users", label: "Пользователи", icon: "👥" },
-  { href: "/admin/files", label: "Файлы", icon: "📁" },
-  { href: "/admin/bots", label: "Боты", icon: "🤖" },
+  { href: "/admin", label: "overview", icon: "⌂" },
+  { href: "/admin/users", label: "users", icon: "👥" },
+  { href: "/admin/files", label: "files", icon: "📁" },
+  { href: "/admin/bots", label: "bots", icon: "🤖" },
 ];
 
 export default function AdminShell({ children }: AdminShellProps) {
+  const t = useTranslations("admin");
+  const navT = useTranslations("nav");
   const pathname = usePathname() || "/admin";
   const [authState, setAuthState] = useState<AuthState>("loading");
 
@@ -51,15 +54,15 @@ export default function AdminShell({ children }: AdminShellProps) {
     return (
       <div className="max-w-md mx-auto px-4 py-32 animate-fade-in">
         <div className="glass rounded-2xl p-8 gradient-border">
-          <h1 className="text-2xl font-bold mb-4 text-center">Админ-панель</h1>
+          <h1 className="text-2xl font-bold mb-4 text-center">{t("panel")}</h1>
           <p className="text-gray-400 text-sm mb-6 text-center">
-            Для доступа к панели войдите в аккаунт администратора.
+            {t("accessLogin")}
           </p>
           <Link
             href={`/login?next=${pathname}`}
             className="block text-center w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity"
           >
-            Войти
+            {navT("login")}
           </Link>
         </div>
       </div>
@@ -70,9 +73,9 @@ export default function AdminShell({ children }: AdminShellProps) {
     return (
       <div className="max-w-md mx-auto px-4 py-32 animate-fade-in">
         <div className="glass rounded-2xl p-8 text-center gradient-border">
-          <h1 className="text-2xl font-bold mb-4">Недостаточно прав</h1>
+          <h1 className="text-2xl font-bold mb-4">{t("insufficientRights")}</h1>
           <p className="text-gray-400 text-sm">
-            Админ-панель доступна только пользователям с ролью администратора.
+            {t("adminOnly")}
           </p>
         </div>
       </div>
@@ -85,9 +88,9 @@ export default function AdminShell({ children }: AdminShellProps) {
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-2xl font-bold sm:text-3xl">
-              Админ<span className="gradient-text">-панель</span>
+              {t("panel")}
             </h1>
-            <p className="text-gray-400 mt-1">Управление FileShare</p>
+            <p className="text-gray-400 mt-1">{t("management")}</p>
           </div>
           <nav aria-label="Разделы админ-панели" className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {navigation.map((item) => {
@@ -104,7 +107,7 @@ export default function AdminShell({ children }: AdminShellProps) {
                   }`}
                 >
                   <span aria-hidden="true">{item.icon}</span>
-                  {item.label}
+                  {t(item.label)}
                 </Link>
               );
             })}

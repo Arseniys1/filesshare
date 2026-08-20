@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { formatDate } from "@/lib/utils";
 
 interface ProfileUser {
@@ -27,6 +28,9 @@ interface ApiKeyPage {
 const EMPTY_PAGE: ApiKeyPage = { items: [], total: 0, page: 1, pageSize: 10, totalPages: 1 };
 
 export default function ProfilePage() {
+  const t = useTranslations("profile");
+  const navT = useTranslations("nav");
+  const locale = useLocale();
   const [user, setUser] = useState<ProfileUser | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKeyPage>(EMPTY_PAGE);
   const [page, setPage] = useState(1);
@@ -55,14 +59,14 @@ export default function ProfilePage() {
         setUnauthenticated(true);
         return;
       }
-      if (!keysResponse.ok) throw new Error(keysData.error || "Не удалось загрузить API-ключи");
+      if (!keysResponse.ok) throw new Error(keysData.error || t("loadingKeys"));
       setApiKeys({ ...EMPTY_PAGE, ...keysData });
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Ошибка загрузки профиля");
+      setError(loadError instanceof Error ? loadError.message : t("loadingKeys"));
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, t]);
 
   useEffect(() => {
     load();
@@ -78,13 +82,13 @@ export default function ProfilePage() {
         body: JSON.stringify({ name }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Не удалось создать API-ключ");
+      if (!response.ok) throw new Error(data.error || t("createKey"));
       setName("");
       setSecret(data.secret);
       if (page !== 1) setPage(1);
       else await load();
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Не удалось создать API-ключ");
+      setError(createError instanceof Error ? createError.message : t("createKey"));
     } finally {
       setSaving(false);
     }
@@ -96,11 +100,11 @@ export default function ProfilePage() {
     try {
       const response = await fetch(`/api/user/api-keys/${key.id}`, { method: "DELETE" });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Не удалось отозвать API-ключ");
+      if (!response.ok) throw new Error(data.error || t("revoke"));
       if (apiKeys.items.length === 1 && page > 1) setPage(page - 1);
       else await load();
     } catch (revokeError) {
-      setError(revokeError instanceof Error ? revokeError.message : "Не удалось отозвать API-ключ");
+      setError(revokeError instanceof Error ? revokeError.message : t("revoke"));
     }
   };
 
@@ -108,9 +112,9 @@ export default function ProfilePage() {
     return (
       <div className="mx-auto max-w-md px-4 py-32">
         <div className="glass gradient-border rounded-2xl p-8 text-center">
-          <h1 className="mb-3 text-2xl font-bold">Профиль</h1>
-          <p className="mb-6 text-sm text-gray-400">Войдите, чтобы управлять профилем и API-ключами.</p>
-          <Link href="/login?next=/profile" className="block rounded-xl bg-gradient-to-r from-accent to-purple-600 py-3 font-medium text-white">Войти</Link>
+          <h1 className="mb-3 text-2xl font-bold">{t("title")}</h1>
+          <p className="mb-6 text-sm text-gray-400">{t("loginRequired")}</p>
+          <Link href="/login?next=/profile" className="block rounded-xl bg-gradient-to-r from-accent to-purple-600 py-3 font-medium text-white">{navT("login")}</Link>
         </div>
       </div>
     );
@@ -120,46 +124,46 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-3xl animate-fade-in px-3 py-8 sm:px-4 sm:py-12">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Профиль</h1>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
           <p className="mt-1 text-gray-400">{user?.email || "Загрузка..."}</p>
         </div>
-        <Link href="/dashboard" className="self-start rounded-xl bg-accent/20 px-4 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30 sm:self-auto">Мои файлы</Link>
+        <Link href="/dashboard" className="self-start rounded-xl bg-accent/20 px-4 py-2.5 text-sm font-medium text-accent-light hover:bg-accent/30 sm:self-auto">{navT("myFiles")}</Link>
       </div>
 
       {error && <div className="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
 
       <section className="glass mb-6 rounded-2xl p-4 sm:p-5">
         <div className="mb-4">
-          <h2 className="font-semibold">API-ключи</h2>
-          <p className="mt-1 text-xs text-gray-500">Создавайте ключи для интеграций. Секрет показывается только один раз.</p>
+          <h2 className="font-semibold">{t("apiKeys")}</h2>
+          <p className="mt-1 text-xs text-gray-500">{t("apiKeysDescription")}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Enter" && name.trim() && !saving) createApiKey(); }}
-            placeholder="Название интеграции"
+            placeholder={t("integrationName")}
             maxLength={64}
             className="min-w-0 flex-1 rounded-xl border border-white/10 bg-surface-overlay px-4 py-2.5 text-sm focus:border-accent/50 focus:outline-none"
           />
           <button type="button" onClick={createApiKey} disabled={saving || !name.trim()} className="w-full rounded-xl bg-accent/20 px-4 py-2.5 text-sm font-medium text-accent-light disabled:opacity-40 sm:w-auto">
-            {saving ? "Создание..." : "Создать ключ"}
+            {saving ? t("creating") : t("createKey")}
           </button>
         </div>
 
         {secret && (
           <div className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
-            <p className="font-medium text-sm text-yellow-300">Сохраните ключ сейчас — повторно показать его нельзя.</p>
+            <p className="font-medium text-sm text-yellow-300">{t("saveSecret")}</p>
             <div className="mt-2 flex items-center gap-2">
               <code className="min-w-0 flex-1 break-all text-xs text-gray-200">{secret}</code>
-              <button type="button" onClick={() => navigator.clipboard.writeText(secret)} className="shrink-0 rounded-lg bg-white/10 px-3 py-2 text-xs">Копировать</button>
+              <button type="button" onClick={() => navigator.clipboard.writeText(secret)} className="shrink-0 rounded-lg bg-white/10 px-3 py-2 text-xs">{t("copy")}</button>
             </div>
-            <button type="button" onClick={() => setSecret(null)} className="mt-3 text-xs text-gray-400 hover:text-white">Скрыть секрет</button>
+            <button type="button" onClick={() => setSecret(null)} className="mt-3 text-xs text-gray-400 hover:text-white">{t("hideSecret")}</button>
           </div>
         )}
 
         {loading ? (
-          <p className="mt-5 text-sm text-gray-500">Загрузка ключей...</p>
+          <p className="mt-5 text-sm text-gray-500">{t("loadingKeys")}</p>
         ) : apiKeys.items.length > 0 ? (
           <div className="mt-5 space-y-2">
             {apiKeys.items.map((key) => (
@@ -170,22 +174,22 @@ export default function ProfilePage() {
                     <code className="text-xs text-gray-500">{key.prefix}</code>
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
-                    Создан {formatDate(key.createdAt)} · {key.lastUsedAt ? `использован ${formatDate(key.lastUsedAt)}` : "ещё не использовался"}
+                    {t("created")} {formatDate(key.createdAt, locale)} · {key.lastUsedAt ? `${t("used")} ${formatDate(key.lastUsedAt, locale)}` : t("notUsed")}
                   </p>
                 </div>
-                <button type="button" onClick={() => revokeApiKey(key)} className="self-start rounded-lg bg-red-500/10 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/20 sm:self-auto">Отозвать</button>
+                <button type="button" onClick={() => revokeApiKey(key)} className="self-start rounded-lg bg-red-500/10 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/20 sm:self-auto">{t("revoke")}</button>
               </div>
             ))}
           </div>
         ) : (
-          <p className="mt-5 text-sm text-gray-500">Активных API-ключей пока нет.</p>
+          <p className="mt-5 text-sm text-gray-500">{t("noKeys")}</p>
         )}
 
         {apiKeys.totalPages > 1 && (
           <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4 text-sm">
-            <button type="button" onClick={() => setPage((current) => current - 1)} disabled={page <= 1 || loading} className="rounded-lg px-3 py-2 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30">Назад</button>
-            <span className="text-xs text-gray-500">Страница {apiKeys.page} из {apiKeys.totalPages}</span>
-            <button type="button" onClick={() => setPage((current) => current + 1)} disabled={page >= apiKeys.totalPages || loading} className="rounded-lg px-3 py-2 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30">Вперёд</button>
+            <button type="button" onClick={() => setPage((current) => current - 1)} disabled={page <= 1 || loading} className="rounded-lg px-3 py-2 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30">{t("back")}</button>
+            <span className="text-xs text-gray-500">{t("page", { page: apiKeys.page, total: apiKeys.totalPages })}</span>
+            <button type="button" onClick={() => setPage((current) => current + 1)} disabled={page >= apiKeys.totalPages || loading} className="rounded-lg px-3 py-2 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30">{t("forward")}</button>
           </div>
         )}
       </section>

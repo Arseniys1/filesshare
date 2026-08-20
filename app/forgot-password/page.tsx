@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import GuestOnly from "@/components/GuestOnly";
+import { useTranslations } from "next-intl";
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations("auth");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [resetUrl, setResetUrl] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export default function ForgotPasswordPage() {
       setMessage(data.message);
       setResetUrl(data.resetUrl || null);
     } catch {
-      setMessage("Не удалось отправить запрос. Попробуйте ещё раз.");
+      setMessage(t("sendError"));
     } finally {
       setLoading(false);
     }
@@ -35,9 +37,9 @@ export default function ForgotPasswordPage() {
     <GuestOnly>
       <div className="mx-auto max-w-md px-3 py-12 animate-fade-in sm:px-4 sm:py-24">
       <div className="glass rounded-2xl p-5 gradient-border sm:p-8">
-        <h1 className="text-2xl font-bold text-center mb-2">Восстановление пароля</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">{t("forgotTitle")}</h1>
         <p className="text-gray-400 text-sm text-center mb-8">
-          Укажите email, и мы отправим ссылку для смены пароля.
+          {t("forgotDescription")}
         </p>
         <form onSubmit={submit} className="space-y-4">
           <input
@@ -54,18 +56,18 @@ export default function ForgotPasswordPage() {
             disabled={loading}
             className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {loading ? "Отправляем..." : "Отправить ссылку"}
+            {loading ? t("sending") : t("sendLink")}
           </button>
         </form>
         {message && <p className="mt-5 text-sm text-gray-300">{message}</p>}
         {resetUrl && (
           <p className="mt-4 text-sm text-yellow-300 break-all">
-            Dev-ссылка: <Link href={resetUrl} className="underline">открыть восстановление</Link>
+            {t("devLink")} <Link href={resetUrl} className="underline">{t("openReset")}</Link>
           </p>
         )}
         <p className="mt-6 text-center text-sm">
           <Link href="/login" className="text-accent-light hover:underline">
-            Вернуться ко входу
+            {t("backToLogin")}
           </Link>
         </p>
       </div>

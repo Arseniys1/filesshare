@@ -223,6 +223,85 @@ function getPaginationPages(
   return pages;
 }
 
+interface PaginationProps {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
+function Pagination({
+  page,
+  pageSize,
+  total,
+  totalPages,
+  onPageChange,
+}: PaginationProps) {
+  const t = useTranslations("dashboard");
+
+  if (totalPages <= 1) return null;
+
+  return (
+    <nav
+      aria-label={t("files")}
+      className="flex flex-col items-center justify-between gap-3 sm:flex-row"
+    >
+      <p className="text-sm text-gray-500">
+        {t("shown", {
+          from: (page - 1) * pageSize + 1,
+          to: Math.min(page * pageSize, total),
+          total,
+        })}
+      </p>
+      <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 sm:justify-end">
+        <button
+          type="button"
+          aria-label={t("previousPage")}
+          disabled={page <= 1}
+          onClick={() => onPageChange(Math.max(page - 1, 1))}
+          className="rounded-xl bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {t("back")}
+        </button>
+        <div className="flex items-center gap-1" aria-label={t("files")}>
+          {getPaginationPages(totalPages, page).map((pageNumber, index) =>
+            pageNumber === "ellipsis" ? (
+              <span
+                key={`ellipsis-${index}`}
+                aria-hidden="true"
+                className="px-1 text-gray-500"
+              >
+                …
+              </span>
+            ) : (
+              <button
+                key={pageNumber}
+                type="button"
+                aria-label={`${pageNumber}`}
+                aria-current={pageNumber === page ? "page" : undefined}
+                onClick={() => onPageChange(pageNumber)}
+                className={`h-9 min-w-9 rounded-xl px-2 text-sm transition-colors ${pageNumber === page ? "bg-accent text-white" : "bg-white/5 text-gray-300 hover:bg-white/10"}`}
+              >
+                {pageNumber}
+              </button>
+            ),
+          )}
+        </div>
+        <button
+          type="button"
+          aria-label={t("nextPage")}
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(Math.min(page + 1, totalPages))}
+          className="rounded-xl bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {t("forward")}
+        </button>
+      </div>
+    </nav>
+  );
+}
+
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const navT = useTranslations("nav");
@@ -471,6 +550,17 @@ export default function DashboardPage() {
           <p className="text-red-400 text-sm">{error}</p>
         </div>
       )}
+      {totalPages > 1 && (
+        <div className="mb-6">
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
       {loading && items.length === 0 ? (
         <div className="py-20 text-center">
           <div className="w-10 h-10 mx-auto border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
@@ -629,62 +719,15 @@ export default function DashboardPage() {
       )}
 
       {totalPages > 1 && (
-        <nav
-          aria-label={t("files")}
-          className="mt-6 flex flex-col items-center justify-between gap-3 sm:flex-row"
-        >
-          <p className="text-sm text-gray-500">
-            {t("shown", {
-              from: (page - 1) * pageSize + 1,
-              to: Math.min(page * pageSize, total),
-              total,
-            })}
-          </p>
-          <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 sm:justify-end">
-            <button
-              type="button"
-              aria-label={t("previousPage")}
-              disabled={page <= 1}
-              onClick={() => setPage((value) => value - 1)}
-              className="rounded-xl bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {t("back")}
-            </button>
-            <div className="flex items-center gap-1" aria-label={t("files")}>
-              {getPaginationPages(totalPages, page).map((pageNumber, index) =>
-                pageNumber === "ellipsis" ? (
-                  <span
-                    key={`ellipsis-${index}`}
-                    aria-hidden="true"
-                    className="px-1 text-gray-500"
-                  >
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={pageNumber}
-                    type="button"
-                    aria-label={`${pageNumber}`}
-                    aria-current={pageNumber === page ? "page" : undefined}
-                    onClick={() => setPage(pageNumber)}
-                    className={`h-9 min-w-9 rounded-xl px-2 text-sm transition-colors ${pageNumber === page ? "bg-accent text-white" : "bg-white/5 text-gray-300 hover:bg-white/10"}`}
-                  >
-                    {pageNumber}
-                  </button>
-                ),
-              )}
-            </div>
-            <button
-              type="button"
-              aria-label={t("nextPage")}
-              disabled={page >= totalPages}
-              onClick={() => setPage((value) => value + 1)}
-              className="rounded-xl bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {t("forward")}
-            </button>
-          </div>
-        </nav>
+        <div className="mt-6">
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </div>
       )}
 
       {qr && (

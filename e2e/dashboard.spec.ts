@@ -180,7 +180,7 @@ test.describe("личный кабинет", () => {
     await expect(page.getByText("page-one.pdf", { exact: true })).toBeVisible();
     await expect(page.getByText("Показано 1–20 из 41")).toBeVisible();
 
-    await page.getByRole("button", { name: "Страница 2" }).click();
+    await page.getByRole("button", { name: "Страница 2" }).first().click();
     await expect(page.getByText("page-two.pdf", { exact: true })).toBeVisible();
     await expect(page.getByText("Показано 21–40 из 41")).toBeVisible();
     await expect(page.getByRole("button", { name: "Предыдущая страница" })).toBeEnabled();
